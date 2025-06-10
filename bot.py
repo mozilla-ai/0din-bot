@@ -1,76 +1,104 @@
+"""
+A Discord bot that responds to 'hello' and handles '@Bot /check <UUID>' commands by querying the ODIN Threatfeed API.
+"""
 import os
 import discord
 import requests
+from loguru import logger
+from typing import Optional
 
 intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
-@client.event
-async def on_ready():
-    print(f'Logged in as {client.user}')
-    for guild in client.guilds:
-        print(f'Connected to guild: {guild.name} (id: {guild.id})')
-        for channel in guild.text_channels:
-            print(f'  Text channel: {channel.name} (id: {channel.id})')
+def get_api_key() -> Optional[str]:
+    return os.environ.get("ODIN_API_KEY")
+
+async def handle_check_command(message: discord.Message, uuid: str) -> None:
+    """Handles the /check command by querying the ODIN Threatfeed API and sending the result."""
+    api_url = f"https://0din.ai/api/v1/threatfeed/{uuid}"
+    api_key = get_api_key()
+    if not api_key:
+        logger.error("ODIN_API_KEY not set in environment.")
+        await message.channel.send("API key not configured.")
+        return
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": api_key
+    }
+
+    try:
+        response = requests.get(api_url, headers=headers)
+        logger.info(f'API request to {api_url} returned status {response.status_code}')
+    except Exception as e:
+        logger.error(f"API request failed: {e}")
+        await message.channel.send(f"API request failed: {e}")
+        return
+
+    if response.status_code != 200:
+        logger.error(f"API returned status code {response.status_code}: {response.text}")
+        await message.channel.send(f"API returned status code {response.status_code}: {response.text}")
+        return
+
+    try:
+        data = response.json()
+    except Exception as e:
+        logger.error(f'Error parsing JSON response: {e}')
+        await message.channel.send(response.text)
+        return
+
+    result = parse_scan_result(data)
+    await message.channel.send(result)
+
+def parse_scan_result(data: dict) -> str:
+    """Extracts and formats the scan result from the API response."""
+    for item in data.get("metadata", []):
+        if item.get("type") == "ScannerModule":
+            scanned = item.get("result")
+            if scanned == 1:
+                return "It has been scanned"
+            elif scanned == 0 or scanned is None:
+                return "It hasn't been checked, hang tight."
+    # If no ScannerModule or unexpected result, show full JSON
+    import json
+    return f"```json\n{json.dumps(data, indent=2)}\n```"
 
 @client.event
-async def on_message(message):
+async def on_ready() -> None:
+    logger.info(f'Logged in as {client.user}')
+    for guild in client.guilds:
+        logger.info(f'Connected to guild: {guild.name} (id: {guild.id})')
+        for channel in guild.text_channels:
+            logger.info(f'  Text channel: {channel.name} (id: {channel.id})')
+
+@client.event
+async def on_message(message: discord.Message) -> None:
     if message.author == client.user:
         return
+
+    logger.info(f'Received message: "{message.content}" from {message.author} in #{message.channel}')
 
     # Respond to "hello"
     if message.content.lower() == 'hello':
         await message.channel.send('world!')
+        logger.info(f'Responded with "world!" to {message.author}')
         return
 
     # Respond to "@Bot /check myUUID"
     if client.user in message.mentions and "/check" in message.content:
-        # Extract the UUID from the message
         parts = message.content.split()
         try:
             check_index = parts.index("/check")
             uuid = parts[check_index + 1]
         except (ValueError, IndexError):
             await message.channel.send("Please provide a UUID after /check, e.g. '@agent /check myUUID'")
+            logger.error("No UUID provided after /check command.")
             return
+        await handle_check_command(message, uuid)
 
-        api_url = f"https://0din.ai/api/v1/threatfeed/{uuid}"
-        api_key = os.environ.get("ODIN_API_KEY")
-        if not api_key:
-            await message.channel.send("API key not configured.")
-            return
+def main() -> None:
+    client.run(os.environ['DISCORD_TOKEN'])
 
-        headers = {
-            "accept": "application/json",
-            "Authorization": api_key
-        }
-
-        try:
-            response = requests.get(api_url, headers=headers)
-            if response.status_code == 200:
-                try:
-                    data = response.json()
-                    # Check for ScannerModule in metadata
-                    scanned = None
-                    for item in data.get("metadata", []):
-                        if item.get("type") == "ScannerModule":
-                            scanned = item.get("result")
-                            break
-                    if scanned == 1:
-                        result = "It has been scanned"
-                    elif scanned == 0 or scanned is None:
-                        result = "It hasn't been checked, hang tight."
-                    else:
-                        import json
-                        result = f"```json\n{json.dumps(data, indent=2)}\n```"
-                except Exception:
-                    result = response.text
-            else:
-                result = f"API returned status code {response.status_code}: {response.text}"
-        except Exception as e:
-            result = f"API request failed: {e}"
-
-        await message.channel.send(result)
-
-client.run(os.environ['DISCORD_TOKEN'])
+if __name__ == "__main__":
+    main()
