@@ -6,10 +6,23 @@ import discord
 import requests
 from loguru import logger
 from typing import Optional
+from discord import app_commands
 
 intents = discord.Intents.default()
 intents.message_content = True
-client = discord.Client(intents=intents)
+
+class MyClient(discord.Client):
+    def __init__(self):
+        super().__init__(intents=intents)
+        self.tree = app_commands.CommandTree(self)
+
+    async def setup_hook(self):
+        # Register the command tree for a specific guild for instant update
+        GUILD_ID = 1378827399948406906  # Replace with your server's ID
+        guild = discord.Object(id=GUILD_ID)
+        await self.tree.sync(guild=guild)
+
+client = MyClient()
 
 # === Discord User-Facing Messages ===
 API_KEY_NOT_CONFIGURED_MSG = "API key not configured."
@@ -24,43 +37,6 @@ API_BASE_URL = "https://0din.ai/api/v1/threatfeed/"
 
 def get_api_key() -> Optional[str]:
     return os.environ.get("ODIN_API_KEY")
-
-async def handle_check_command(message: discord.Message, uuid: str) -> None:
-    """Handles the /check command by querying the ODIN Threatfeed API and sending the result."""
-    api_url = f"{API_BASE_URL}{uuid}"
-    api_key = get_api_key()
-    if not api_key:
-        logger.error("ODIN_API_KEY not set in environment.")
-        await message.channel.send(API_KEY_NOT_CONFIGURED_MSG)
-        return
-
-    headers = {
-        "accept": "application/json",
-        "Authorization": api_key
-    }
-
-    try:
-        response = requests.get(api_url, headers=headers)
-        logger.info(f'API request to {api_url} returned status {response.status_code}')
-    except Exception as e:
-        logger.error(f"API request failed: {e}")
-        await message.channel.send(API_REQUEST_FAILED_MSG.format(error=e))
-        return
-
-    if response.status_code != 200:
-        logger.error(f"API returned status code {response.status_code}: {response.text}")
-        await message.channel.send(API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text))
-        return
-
-    try:
-        data = response.json()
-    except Exception as e:
-        logger.error(f'Error parsing JSON response: {e}')
-        await message.channel.send(response.text)
-        return
-
-    result = parse_scan_result(data)
-    await message.channel.send(result)
 
 def parse_scan_result(data: dict) -> str:
     """Extracts and formats the scan result from the API response."""
@@ -96,21 +72,52 @@ async def on_message(message: discord.Message) -> None:
         logger.info(f'Responded with "world!" to {message.author}')
         return
 
-    # Respond to "@Bot /check myUUID"
-    if client.user in message.mentions and "/check" in message.content:
-        parts = message.content.split()
-        try:
-            check_index = parts.index("/check")
-            uuid = parts[check_index + 1]
-        except (ValueError, IndexError):
-            await message.channel.send(NO_UUID_MSG)
-            logger.error("No UUID provided after /check command.")
-            return
-        await handle_check_command(message, uuid)
     # Respond to any other message that mentions the bot
-    elif client.user in message.mentions:
+    if client.user in message.mentions:
         await message.channel.send(USAGE_INSTRUCTIONS_MSG)
         logger.info(f'Responded with usage instructions to {message.author}')
+
+@client.tree.command(
+    name="check",
+    description="Check a UUID in the threat feed",
+    guild=discord.Object(id=1378827399948406906)
+)
+@app_commands.describe(uuid="The UUID to check")
+async def check(interaction: discord.Interaction, uuid: str):
+    api_url = f"{API_BASE_URL}{uuid}"
+    api_key = get_api_key()
+    if not api_key:
+        logger.error("ODIN_API_KEY not set in environment.")
+        await interaction.response.send_message(API_KEY_NOT_CONFIGURED_MSG, ephemeral=True)
+        return
+
+    headers = {
+        "accept": "application/json",
+        "Authorization": api_key
+    }
+
+    try:
+        response = requests.get(api_url, headers=headers)
+        logger.info(f'API request to {api_url} returned status {response.status_code}')
+    except Exception as e:
+        logger.error(f"API request failed: {e}")
+        await interaction.response.send_message(API_REQUEST_FAILED_MSG.format(error=e), ephemeral=True)
+        return
+
+    if response.status_code != 200:
+        logger.error(f"API returned status code {response.status_code}: {response.text}")
+        await interaction.response.send_message(API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text), ephemeral=True)
+        return
+
+    try:
+        data = response.json()
+    except Exception as e:
+        logger.error(f'Error parsing JSON response: {e}')
+        await interaction.response.send_message(response.text, ephemeral=True)
+        return
+
+    result = parse_scan_result(data)
+    await interaction.response.send_message(result)
 
 def main() -> None:
     client.run(os.environ['DISCORD_TOKEN'])

@@ -37,10 +37,12 @@ Note: you can check whether the bot is active by writing "hello" in any channel 
 
 4. **Set your environment variables:**
    - The `/check <UUID>` command requires a valid ODIN API key.
+   - You must also set your Discord server's Guild ID for the bot to register commands instantly.
 
    ```sh
    export DISCORD_TOKEN=your-bot-token-here
    export ODIN_API_KEY=your-odin-api-key-here # Note this is spelled ODIN, not 0DIN, as the original project
+   export GUILD_ID=your-discord-guild-id-here
    ```
 
 5. **Run the bot:**
