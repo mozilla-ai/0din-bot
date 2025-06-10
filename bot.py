@@ -36,6 +36,7 @@ NOT_SCANNED_MSG = "It hasn't been checked, hang tight."
 USAGE_INSTRUCTIONS_MSG = "If you want me to check your submission, @ me and write '/check UUID'"
 HELLO_RESPONSE = "world!"
 API_BASE_URL = "https://0din.ai/api/v1/threatfeed/"
+IS_UUID_VALID_MSG = "Did you provide a valid UUID?"
 
 def get_api_key() -> Optional[str]:
     return os.environ.get("ODIN_API_KEY")
@@ -108,7 +109,7 @@ async def check(interaction: discord.Interaction, uuid: str):
 
     if response.status_code != 200:
         logger.error(f"API returned status code {response.status_code}: {response.text}")
-        await interaction.response.send_message(API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text), ephemeral=True)
+        await interaction.response.send_message(f"{API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text)}\n{IS_UUID_VALID_MSG}", ephemeral=False)
         return
 
     try:
