@@ -1,17 +1,21 @@
-# Hello-World Discord Bot
+# Discord Bot: ODIN Threatfeed Checker
 
-A minimalist Discord bot that replies with `world!` whenever a user says `hello` in any channel the bot can read.
+A minimalist Discord bot that:
+- Responds to `@Bot /check <UUID>` by querying the ODIN Threatfeed API and reporting scan status.
 
 ## Features
-- Responds to the message `hello` (case-insensitive) with `world!` on any channel on your server it can read.
+- When mentioned with `/check <UUID>`, calls the ODIN Threatfeed API and reports if the item has been scanned or not.
+
+Note: you can check whether the bot is active by writing "hello" in any channel the bot is in. It will respond "world!".
 
 ## Requirements
 - **Hardware:** Any system capable of running Python 3.11+
 - **Software:**
-  - Python 3.8 or higher ([Download Python](https://www.python.org/downloads/))
+  - Python 3.11 or higher ([Download Python](https://www.python.org/downloads/))
   - [uv](https://github.com/astral-sh/uv) (for dependency management and running)
   - A Discord account and a Discord server where you have permission to add bots
   - A Discord Bot Token ([Create one here](https://discord.com/developers/applications))
+  - An ODIN API Key (for /check command)
 
 ## Setup
 
@@ -31,9 +35,12 @@ A minimalist Discord bot that replies with `world!` whenever a user says `hello`
    - Create a new application, add a bot, and copy the bot token
    - Invite the bot to your server using the OAuth2 URL generator (scopes: `bot`, permissions: `Send Messages`, `Read Messages`)
 
-4. **Set your bot token as an environment variable:**
+4. **Set your environment variables:**
+   - The `/check <UUID>` command requires a valid ODIN API key.
+
    ```sh
    export DISCORD_TOKEN=your-bot-token-here
+   export ODIN_API_KEY=your-odin-api-key-here # Note this is spelled ODIN, not 0DIN, as the original project
    ```
 
 5. **Run the bot:**
