@@ -11,16 +11,27 @@ intents = discord.Intents.default()
 intents.message_content = True
 client = discord.Client(intents=intents)
 
+# === Discord User-Facing Messages ===
+API_KEY_NOT_CONFIGURED_MSG = "API key not configured."
+API_REQUEST_FAILED_MSG = "API request failed: {error}"
+API_RETURNED_STATUS_MSG = "API returned status code {status_code}: {text}"
+NO_UUID_MSG = "Please provide a UUID after /check, e.g. '@agent /check myUUID'"
+SCANNED_MSG = "It has been scanned"
+NOT_SCANNED_MSG = "It hasn't been checked, hang tight."
+USAGE_INSTRUCTIONS_MSG = "If you want me to check your submission, @ me and write '/check UUID'"
+HELLO_RESPONSE = "world!"
+API_BASE_URL = "https://0din.ai/api/v1/threatfeed/"
+
 def get_api_key() -> Optional[str]:
     return os.environ.get("ODIN_API_KEY")
 
 async def handle_check_command(message: discord.Message, uuid: str) -> None:
     """Handles the /check command by querying the ODIN Threatfeed API and sending the result."""
-    api_url = f"https://0din.ai/api/v1/threatfeed/{uuid}"
+    api_url = f"{API_BASE_URL}{uuid}"
     api_key = get_api_key()
     if not api_key:
         logger.error("ODIN_API_KEY not set in environment.")
-        await message.channel.send("API key not configured.")
+        await message.channel.send(API_KEY_NOT_CONFIGURED_MSG)
         return
 
     headers = {
@@ -33,12 +44,12 @@ async def handle_check_command(message: discord.Message, uuid: str) -> None:
         logger.info(f'API request to {api_url} returned status {response.status_code}')
     except Exception as e:
         logger.error(f"API request failed: {e}")
-        await message.channel.send(f"API request failed: {e}")
+        await message.channel.send(API_REQUEST_FAILED_MSG.format(error=e))
         return
 
     if response.status_code != 200:
         logger.error(f"API returned status code {response.status_code}: {response.text}")
-        await message.channel.send(f"API returned status code {response.status_code}: {response.text}")
+        await message.channel.send(API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text))
         return
 
     try:
@@ -57,9 +68,9 @@ def parse_scan_result(data: dict) -> str:
         if item.get("type") == "ScannerModule":
             scanned = item.get("result")
             if scanned == 1:
-                return "It has been scanned"
+                return SCANNED_MSG
             elif scanned == 0 or scanned is None:
-                return "It hasn't been checked, hang tight."
+                return NOT_SCANNED_MSG
     # If no ScannerModule or unexpected result, show full JSON
     import json
     return f"```json\n{json.dumps(data, indent=2)}\n```"
@@ -81,7 +92,7 @@ async def on_message(message: discord.Message) -> None:
 
     # Respond to "hello"
     if message.content.lower() == 'hello':
-        await message.channel.send('world!')
+        await message.channel.send(HELLO_RESPONSE)
         logger.info(f'Responded with "world!" to {message.author}')
         return
 
@@ -92,10 +103,14 @@ async def on_message(message: discord.Message) -> None:
             check_index = parts.index("/check")
             uuid = parts[check_index + 1]
         except (ValueError, IndexError):
-            await message.channel.send("Please provide a UUID after /check, e.g. '@agent /check myUUID'")
+            await message.channel.send(NO_UUID_MSG)
             logger.error("No UUID provided after /check command.")
             return
         await handle_check_command(message, uuid)
+    # Respond to any other message that mentions the bot
+    elif client.user in message.mentions:
+        await message.channel.send(USAGE_INSTRUCTIONS_MSG)
+        logger.info(f'Responded with usage instructions to {message.author}')
 
 def main() -> None:
     client.run(os.environ['DISCORD_TOKEN'])
