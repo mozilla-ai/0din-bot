@@ -18,8 +18,10 @@ class MyClient(discord.Client):
 
     async def setup_hook(self):
         # Register the command tree for a specific guild for instant update
-        GUILD_ID = 1378827399948406906  # Replace with your server's ID
-        guild = discord.Object(id=GUILD_ID)
+        GUILD_ID = os.environ.get("GUILD_ID")
+        if not GUILD_ID:
+            raise RuntimeError("GUILD_ID environment variable not set.")
+        guild = discord.Object(id=int(GUILD_ID))
         await self.tree.sync(guild=guild)
 
 client = MyClient()
