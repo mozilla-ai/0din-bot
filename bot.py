@@ -8,6 +8,7 @@ from loguru import logger
 from typing import Optional
 from discord import app_commands
 import uuid as uuid_lib
+import httpx
 
 # === Discord User-Facing Messages ===
 API_KEY_NOT_CONFIGURED_MSG: str = "API key not configured."
@@ -66,6 +67,8 @@ client = MyClient()
 @client.event
 async def on_ready() -> None:
     logger.info(f'Logged in as {client.user}')
+    await client.tree.sync()
+    logger.info("Resynced global commands.")
     for guild in client.guilds:
         logger.info(f'Connected to guild: {guild.name} (id: {guild.id})')
         for channel in guild.text_channels:
@@ -87,8 +90,8 @@ async def on_message(message: discord.Message) -> None:
         logger.info(f'Responded with usage instructions to {message.author}')
 
 @client.tree.command(
-    name="check",
-    description="Check a UUID in the threat feed",
+    name="checkk",
+    description="Checkk a UUID in the threat feed",
     guild=discord.Object(id=1378827399948406906)
 )
 @app_commands.describe(uuid="The UUID to check")
@@ -110,7 +113,8 @@ async def check(interaction: discord.Interaction, uuid: str) -> None:
     }
     
     try:
-        response = requests.get(api_url, headers=headers, timeout=15)
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(api_url, headers=headers)
         logger.info(f'API request to {api_url} returned status {response.status_code}')
     except Exception as e:
         logger.error(f"API request failed: {e}")
@@ -124,6 +128,7 @@ async def check(interaction: discord.Interaction, uuid: str) -> None:
             ephemeral=False
         )
         return
+    
     try:
         data = response.json()
     except Exception as e:
