@@ -7,6 +7,7 @@ import requests
 from loguru import logger
 from typing import Optional
 from discord import app_commands
+import uuid as uuid_lib
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -37,6 +38,7 @@ USAGE_INSTRUCTIONS_MSG = "If you want me to check your submission, @ me and writ
 HELLO_RESPONSE = "world!"
 API_BASE_URL = "https://0din.ai/api/v1/threatfeed/"
 IS_UUID_VALID_MSG = "Did you provide a valid UUID?"
+INVALID_UUID_MSG = "The UUID you provided is not valid. Please provide a valid UUID."
 
 def get_api_key() -> Optional[str]:
     return os.environ.get("ODIN_API_KEY")
@@ -80,6 +82,14 @@ async def on_message(message: discord.Message) -> None:
         await message.channel.send(USAGE_INSTRUCTIONS_MSG)
         logger.info(f'Responded with usage instructions to {message.author}')
 
+def is_valid_uuid(uuid_str: str, version: int = 4) -> bool:
+    """Check if uuid_str is a valid UUID of the given version."""
+    try:
+        val = uuid_lib.UUID(uuid_str, version=version)
+        return str(val) == uuid_str
+    except Exception:
+        return False
+
 @client.tree.command(
     name="check",
     description="Check a UUID in the threat feed",
@@ -87,6 +97,10 @@ async def on_message(message: discord.Message) -> None:
 )
 @app_commands.describe(uuid="The UUID to check")
 async def check(interaction: discord.Interaction, uuid: str):
+    # Validate UUID
+    if not is_valid_uuid(uuid):
+        await interaction.response.send_message(INVALID_UUID_MSG, ephemeral=True)
+        return
     api_url = f"{API_BASE_URL}{uuid}"
     api_key = get_api_key()
     if not api_key:
