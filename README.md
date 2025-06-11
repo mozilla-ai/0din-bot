@@ -21,13 +21,13 @@ Note: you can check whether the bot is active by writing "hello" in any channel 
 
 1. **Clone this repository and enter the directory:**
    ```sh
-   git clone <your-repo-url>
-   cd <your-repo-directory>
+   git clone git@github.com:ividal/0din-bot.git
+   cd 0din-bot
    ```
 
-2. **Install dependencies using uv:**
+2. **Install the package in development mode:**
    ```sh
-   uv pip install -r requirements.txt
+   uv pip install -e .
    ```
 
 3. **Create a Discord bot and get your token:**
@@ -41,11 +41,11 @@ Note: you can check whether the bot is active by writing "hello" in any channel 
 
    ```sh
    export DISCORD_TOKEN=your-bot-token-here
-   export ODIN_API_KEY=your-odin-api-key-here # Note this is spelled ODIN, not 0DIN, as the original project
+   export ODIN_API_KEY=your-odin-api-key-here # Note this is spelled ODIN, not 0DIN
    export GUILD_ID=your-discord-guild-id-here
    ```
 
 5. **Run the bot:**
    ```sh
-   uv run python bot.py
+   uv run odinbot
    ```
