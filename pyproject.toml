@@ -10,10 +10,9 @@ readme = "README.md"
 authors = [
     {name = "Your Name", email = "your.email@example.com"}
 ]
-license = {text = "MIT"}
+license = "MIT"
 classifiers = [
     "Programming Language :: Python :: 3",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.11"
@@ -21,7 +20,6 @@ dependencies = [
     "discord.py>=2.3.2",  # Discord bot functionality
     "httpx>=0.26.0",     # Async HTTP requests
     "loguru>=0.7.2",     # Logging
-    "requests>=2.31.0",  # HTTP requests
     "python-dotenv>=1.0.0",  # Environment variables
     "any-agent[all]>=0.1.0",  # Agent functionality with all extras
     "litellm>=1.30.7",   # LLM calls
@@ -33,6 +31,11 @@ dependencies = [
 
 [project.scripts]
 odinbot = "odinbot.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["odinbot"]
+exclude = ["logs", "*.log"]
 
 [tool.black]
 line-length = 88

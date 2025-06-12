@@ -1,9 +1,7 @@
 """
 Command-line interface for launching either the UUID checker bot or the message analyzer bot.
 """
-import os
 import sys
-from typing import Optional
 import click
 from loguru import logger
 

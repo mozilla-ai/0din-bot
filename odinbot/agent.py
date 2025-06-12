@@ -1,35 +1,135 @@
 # agent.py
 
 import os
+from typing import List
 from dotenv import load_dotenv
 from loguru import logger
 import discord
 from discord import app_commands
 from discord.ext import commands
-from openai import OpenAI
-from datetime import datetime, timedelta
-import json
-import asyncio
+from datetime import datetime
+from any_agent import AgentConfig, AnyAgent
+from any_agent.config import MCPStdio
+from pydantic import BaseModel, Field
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
 
 load_dotenv()
 
-# Initialize OpenAI client
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+# ========= Structured output definition =========
+class UserTopicSummary(BaseModel):
+    user_handle: str = Field(..., description="Discord username or nickname of the poster")
+    topic: str = Field(..., description="Main topic the user posted about on the given date")
+    message_count: int = Field(..., description="Number of messages the user posted about that topic on that date")
+
+class StructuredOutput(BaseModel):
+    date: str = Field(..., description="ISO formatted date (YYYY-MM-DD) that was summarised")
+    channel_id: str = Field(..., description="Discord channel ID that was summarised")
+    summaries: List[UserTopicSummary] = Field(..., description="List of unique users with their main topic and message count")
+    file_path: str = Field(..., description="Relative file path where the summary was saved locally")
+
+# ========= System Instructions =========
+INSTRUCTIONS = """You are a Discord assistant agent embedded in server ID 1378827399948406906 and channel ID 1378827407733035162.
+Follow this deterministic multi-step workflow for every user message you receive:
+
+1. INTENT CHECK  ➜  Decide whether the user is requesting a day summary of the channel.
+   • If the request is NOT a day-summary request, politely reply that you can only provide daily summaries on request and TERMINATE.
+
+2. DATE RESOLUTION ➜  Determine the target date to summarise.
+   • If the user explicitly mentions a calendar date in YYYY-MM-DD, DD/MM/YYYY, or "Month name DD" format, use that date (assume server timezone UTC).
+   • Otherwise, default to **yesterday's** date relative to current UTC.
+   • Store the resolved date as string ISO-formatted YYYY-MM-DD.
+
+3. READ MESSAGES ➜  Call `discord_read_messages` with:
+   {
+     "channel_id": "1378827407733035162",
+     "limit": 1000  # fetch enough messages, you will filter by date afterwards
+   }
+   • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
+   • If no messages exist for that day, proceed to Step 5 with an empty summary.
+
+4. ANALYSE TOPICS ➜  For the remaining messages:
+   • Group messages by **author username**.
+   • For each user, analyse the content of all their messages to identify the **main topic of concern** (few-word description).
+     – Use semantic similarity: pick the most recurring subject or summarise the common theme.
+   • Count how many messages from that user relate to that topic (length of that user's message list).
+   • Create rows in the form: `user_handle, topic, message_count`.
+
+5. POST SUMMARY ➜  Compose a single summary message containing **one row per user on its own line**.
+   • If no messages were present, the summary text is: "No messages were posted on <date>.".
+   • Call `discord_send` with:
+     {
+       "channel_id": "1378827407733035162",
+       "message": "<your composed summary message>"
+     }
+
+6. SAVE OUTPUT ➜  Save the summary text locally to
+   `logs/discord_daily_summary_<date>.txt`.
+
+7. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
+   – date, channel_id, summaries (array of objects with user_handle, topic, message_count), file_path (relative path saved in Step 6).
+
+General rules:
+• ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
+• NEVER expose raw tool responses or internal reasoning to the end-user.
+"""
 
 class MessageAnalyzerBot(commands.Bot):
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialize the Discord bot with message content intent."""
         logger.info("Initializing MessageAnalyzerBot...")
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(command_prefix='!', intents=intents)
-        # Store pending summary requests
-        self.pending_requests = {}
+        self.agent = None  # Will be initialized in setup_hook
 
-    async def setup_hook(self):
+    async def _create_agent(self) -> AnyAgent:
+        """Create the AnyAgent instance with MCP tools asynchronously.
+        
+        Returns:
+            AnyAgent: The configured agent instance.
+        """
+        return await AnyAgent.create_async(
+            "openai",
+            AgentConfig(
+                model_id="o3",
+                instructions=INSTRUCTIONS,
+                tools=[
+                    MCPStdio(
+                        command="docker",
+                        args=[
+                            "run",
+                            "-i",
+                            "--rm",
+                            "-e",
+                            "DISCORD_TOKEN",
+                            "mcp/mcp-discord",
+                        ],
+                        env={
+                            "DISCORD_TOKEN": os.getenv("DISCORD_TOKEN"),
+                        },
+                        tools=[
+                            "test",
+                            "discord_read_messages",
+                            "discord_login",
+                            "discord_send",
+                        ],
+                        client_session_timeout_seconds=30.0,  # Increased timeout to 60 seconds
+                    ),
+                ],
+                agent_args={"output_type": StructuredOutput},
+                model_args={"tool_choice": "required"},
+            ),
+        )
+
+    async def setup_hook(self) -> None:
+        """Set up bot hooks and register slash commands."""
         logger.info("Setting up bot hooks...")
+        # Initialize the agent
+        self.agent = await self._create_agent()
+        logger.info("Agent initialized successfully")
+        
         # Register slash commands
         self.tree.add_command(app_commands.Command(
             name="check",
@@ -39,136 +139,97 @@ class MessageAnalyzerBot(commands.Bot):
         await self.tree.sync()
         logger.info("Slash commands registered")
 
-    async def on_ready(self):
+    async def on_ready(self) -> None:
+        """Handle bot ready event."""
         logger.info(f'Logged in as {self.user}')
-        await self.tree.sync()
-        logger.info("Resynced global commands.")
+        logger.info("Bot is ready!")
 
-    async def check_command(self, interaction: discord.Interaction):
-        """Handle the /check command."""
+    async def check_command(self, interaction: discord.Interaction) -> None:
+        """Handle the /check command.
+        
+        Args:
+            interaction: The Discord interaction object.
+        """
         logger.debug(f"Received /check command from {interaction.user}")
         await interaction.response.send_message("Bot is operational!")
 
-    async def get_channel_history(self, channel, date=None, limit=1000):
-        """Get message history from a channel for a specific date."""
-        messages = []
-        async for message in channel.history(limit=limit):
-            if date:
-                # If date is specified, only include messages from that date
-                if message.created_at.date() == date:
-                    messages.append({
-                        'author': str(message.author),
-                        'content': message.content,
-                        'timestamp': message.created_at.isoformat()
-                    })
-            else:
-                # If no date specified, include all messages
-                messages.append({
-                    'author': str(message.author),
-                    'content': message.content,
-                    'timestamp': message.created_at.isoformat()
-                })
-        return messages
-
-    async def analyze_messages(self, messages, query, user_id):
-        """Use OpenAI to analyze messages and respond to the query."""
-        try:
-            # Prepare the conversation for the LLM
-            conversation = [
-                {"role": "system", "content": """You are a helpful assistant that analyzes Discord messages.
-                Your primary function is to understand what action items arise from channel activity.
-                
-                When a user asks for a summary and only in that case:
-                1. If they don't specify a date, ask them which date they want to summarize
-                2. If they specify a date, provide a summary of messages from that date. The date can be in any format (e.g., "June 11th", "11th June", "June 11", "11/6", etc.). Always interpret the date correctly and use it to filter messages.
-                3. If they don't specify a year, assume the current year,
-                4. Use the Discord tool to access message history, read the messages and provide a summary of the main topics and discussions.
-                
-                Your response should be:
-                - A request for a date if none is specified. If you did not understand the date, repeat it between quotes so the user can correct it.
-                - A clear summary of the main topics and discussions if a date is provided. The summary should have the format shown below.
-                - A message indicating no messages were found if the date has no activity
-                
-                The correct format for the summary should be similar to a csv file with columns, including the header:
-                user, topic, number of messages
-
-                For example:
-                '''
-                user, topic, number of messages
-                Alex#123, payment, 1
-                Stefan#223, submission, 2
-                Irina#231, general questions, 1
-                '''
-                Keep your responses concise and focused on the summary request. Do NOT hallucinate messages or any content.
-                
-                IMPORTANT: You have access to the actual messages through the messages parameter. Use these messages to create your summary. Do not make up or hallucinate any content."""},
-                {"role": "user", "content": f"Here are the messages from the channel:\n{json.dumps(messages, indent=2)}\n\n"
-                 f"Query: {query}\n\nPlease analyze these messages and respond appropriately."}
-            ]
-
-            # Get response from OpenAI using the new API
-            response = await asyncio.to_thread(
-                client.chat.completions.create,
-                model="gpt-4.1",
-                messages=conversation,
-                temperature=0.1,
-                max_tokens=5000
-            )
-
-            return response.choices[0].message.content
-
-        except Exception as e:
-            logger.error(f"Error in analyze_messages: {e}")
-            logger.exception("Full traceback:")
-            return "I encountered an error while analyzing the messages."
-
-    async def on_message(self, message):
+    async def on_message(self, message: discord.Message) -> None:
+        """Handle incoming messages.
+        
+        Args:
+            message: The Discord message that was received.
+        """
         # Don't respond to our own messages
         if message.author == self.user:
             return
 
         # Check if the message is directed at the bot
-        is_directed = (
+        is_directed: bool = (
             message.reference and 
             message.reference.resolved and 
             message.reference.resolved.author == self.user
         ) or any(mention.id == self.user.id for mention in message.mentions)
 
         if not is_directed:
-            await message.channel.send("Nah")
-            return
+            pass #TODO: revert to return to avoid unnecessary answers
 
         logger.debug(f"Received directed message from {message.author}: {message.content}")
 
         try:
-            # Get message history
-            messages = await self.get_channel_history(message.channel)
-            
-            # Analyze messages and get response
-            response = await self.analyze_messages(messages, message.content, message.author.id)
-            
-            # Check if the response is asking for a date
-            if "which date" in response.lower() or "what date" in response.lower():
-                # Store the pending request
-                self.pending_requests[message.author.id] = True
-            
-            # Send response
-            await message.channel.send(response)
+            # Show typing indicator while processing
+            async with message.channel.typing():
+                logger.info("Starting agent processing...")
+                # Run the agent directly in the async context
+                agent_trace = await self.agent.run_async(prompt=message.content)
+                logger.info("Agent processing completed successfully")
+                
+                # Save trace for evaluation
+                os.makedirs("logs", exist_ok=True)
+                
+                timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
+                trace_filename: str = f"logs/{timestamp}_agent_trace.json"
+                
+                with open(trace_filename, "w", encoding="utf-8") as f:
+                    f.write(agent_trace.model_dump_json(indent=2))
+                logger.info(f"Trace saved to {trace_filename}")
+
+                # Get the structured output from the trace
+                if hasattr(agent_trace, 'final_output') and agent_trace.final_output:
+                    output = StructuredOutput.model_validate(agent_trace.final_output)
+                    # Format the output for Discord
+                    summary_lines = []
+                    for user_summary in output.summaries:
+                        summary_lines.append(
+                            f"**{user_summary.user_handle}**: {user_summary.topic} "
+                            f"({user_summary.message_count} messages)"
+                        )
+                    
+                    # Create the message
+                    message_text = (
+                        f"📊 Summary for {output.date}\n\n" +
+                        "\n".join(summary_lines) +
+                        f"\n\nSummary saved to: `{output.file_path}`"
+                    )
+                    
+                    # Send the formatted message
+                    await message.channel.send(message_text)
+                else:
+                    await message.channel.send("I couldn't generate a summary for the requested date.")
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
             logger.exception("Full traceback:")
-            await message.channel.send("I encountered an error while processing your request.")
+            await message.channel.send("I encountered an error while processing your request. Please try again in a few moments.")
 
-def run_agent(guild_id: str, channel_id: str):
-    """
-    Run the message analyzer bot that monitors a Discord channel.
+def run_agent(guild_id: str, channel_id: str) -> None:
+    """Run the message analyzer bot that monitors a Discord channel.
+    
     Args:
-        guild_id (str): The Discord GUILD_ID (server) to connect to.
-        channel_id (str): The Discord channel ID to monitor.
+        guild_id: The Discord GUILD_ID (server) to connect to.
+        channel_id: The Discord channel ID to monitor.
     """
     logger.info(f"Starting bot for guild {guild_id}, channel {channel_id}")
-    bot = MessageAnalyzerBot()
+    bot: MessageAnalyzerBot = MessageAnalyzerBot()
     bot.run(os.environ['DISCORD_TOKEN'])
 
 if __name__ == "__main__":
