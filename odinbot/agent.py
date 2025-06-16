@@ -275,9 +275,9 @@ class MessageAnalyzerBot(commands.Bot):
         
         # Register slash commands
         self.tree.add_command(app_commands.Command(
-            name="check",
+            name="health",
             description="Check the status of the bot",
-            callback=self.check_command
+            callback=self.health_command
         ))
         await self.tree.sync()
         logger.info("Slash commands registered")
@@ -287,13 +287,13 @@ class MessageAnalyzerBot(commands.Bot):
         logger.info(f'Logged in as {self.user}')
         logger.info("Bot is ready!")
 
-    async def check_command(self, interaction: discord.Interaction) -> None:
-        """Handle the /check command.
+    async def health_command(self, interaction: discord.Interaction) -> None:
+        """Handle the /health command.
         
         Args:
             interaction: The Discord interaction object.
         """
-        logger.debug(f"Received /check command from {interaction.user}")
+        logger.debug(f"Received /health command from {interaction.user}")
         await interaction.response.send_message("Bot is operational!")
 
     async def on_message(self, message: discord.Message) -> None:
