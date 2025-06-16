@@ -10,45 +10,13 @@ from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
-from pydantic import BaseModel, Field, validator
-import httpx
-import uuid as uuid_lib
-from .tools import check_submission
+from pydantic import BaseModel, Field
+from .tools import check_submission, SCANNED_MSG, NOT_SCANNED_MSG
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
 
 load_dotenv()
-
-# ========= API Constants =========
-API_BASE_URL: str = "https://0din.ai/api/v1/threatfeed/"
-API_KEY_NOT_CONFIGURED_MSG: str = "API key not configured."
-API_REQUEST_FAILED_MSG: str = "API request failed: {error}"
-API_RETURNED_STATUS_MSG: str = "API returned status code {status_code}: {text}"
-INVALID_UUID_MSG: str = "The UUID you provided is not valid. Please provide a valid UUID."
-SCANNED_MSG: str = "It has been scanned"
-NOT_SCANNED_MSG: str = "It hasn't been checked, hang tight."
-
-def is_valid_uuid(uuid_str: str, version: int = 4) -> bool:
-    """Check if uuid_str is a valid UUID of the given version."""
-    try:
-        val = uuid_lib.UUID(uuid_str, version=version)
-        return str(val) == uuid_str
-    except (ValueError, AttributeError, TypeError):
-        return False
-
-def parse_scan_result(data: dict) -> str:
-    """Extracts and formats the scan result from the API response."""
-    for item in data.get("metadata", []):
-        if item.get("type") == "ScannerModule":
-            scanned = item.get("result")
-            if scanned == 1:
-                return SCANNED_MSG
-            elif scanned == 0 or scanned is None:
-                return NOT_SCANNED_MSG
-    # If no ScannerModule or unexpected result, show full JSON
-    import json
-    return f"```json\n{json.dumps(data, indent=2)}\n```"
 
 # ========= Structured output definition =========
 class UserTopicSummary(BaseModel):
