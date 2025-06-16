@@ -256,7 +256,7 @@ class MessageAnalyzerBot(commands.Bot):
         ) or any(mention.id == self.user.id for mention in message.mentions)
 
         if not is_directed:
-            pass #TODO: revert to return to avoid unnecessary answers
+            return
 
         logger.debug(f"Received directed message from {message.author}: {message.content}")
 
