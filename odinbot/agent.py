@@ -1,7 +1,7 @@
 # agent.py
 
 import os
-from typing import List
+from typing import List, Literal, Union
 from dotenv import load_dotenv
 from loguru import logger
 import discord
@@ -10,7 +10,7 @@ from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 import httpx
 import uuid as uuid_lib
 from .tools import check_submission
@@ -99,18 +99,61 @@ class UserTopicSummary(BaseModel):
     topic: str = Field(..., description="Main topic the user posted about on the given date")
     message_count: int = Field(..., description="Number of messages the user posted about that topic on that date")
 
-class StructuredOutput(BaseModel):
+class SubmissionStatus(BaseModel):
+    uuid: str = Field(..., description="The UUID of the submission being checked")
+    status: str = Field(..., description="The status of the submission, either 'processed' or 'not_processed'")
+    details: str = Field(..., description="Additional details about the submission status")
+
+class SummaryOutput(BaseModel):
+    type: Literal["summary"] = "summary"
     date: str = Field(..., description="ISO formatted date (YYYY-MM-DD) that was summarised")
     channel_id: str = Field(..., description="Discord channel ID that was summarised")
     summaries: List[UserTopicSummary] = Field(..., description="List of unique users with their main topic and message count")
     file_path: str = Field(..., description="Relative file path where the summary was saved locally")
 
+    def format_message(self) -> str:
+        summary_lines = []
+        for user_summary in self.summaries:
+            summary_lines.append(
+                f"**{user_summary.user_handle}**: {user_summary.topic} "
+                f"({user_summary.message_count} messages)"
+            )
+        
+        return (
+            f"📊 Summary for {self.date}\n\n" +
+            "\n".join(summary_lines) +
+            f"\n\nSummary saved to: `{self.file_path}`"
+        )
+
+class SubmissionOutput(BaseModel):
+    type: Literal["submission_status"] = "submission_status"
+    submission_status: SubmissionStatus = Field(..., description="Status of a submission check")
+
+    def format_message(self) -> str:
+        status = self.submission_status
+        return (
+            f"🔍 Submission Status for {status.uuid}\n"
+            f"Status: {status.status}\n"
+            f"Details: {status.details}"
+        )
+
+class RefusalOutput(BaseModel):
+    type: Literal["refusal"] = "refusal"
+    refusal_reason: str = Field(..., description="The reason for the refusal")
+
+    def format_message(self) -> str:
+        return f"🚫 Refusal: {self.refusal_reason}"
+
+StructuredOutput = Union[SummaryOutput, SubmissionOutput, RefusalOutput]
+
 # ========= System Instructions =========
-INSTRUCTIONS = """You are a Discord assistant agent embedded in server ID 1378827399948406906 and channel ID 1378827407733035162.
+INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
 Follow this deterministic multi-step workflow for every user message you receive:
 
-1. INTENT CHECK  ➜  Decide whether the user is requesting a day summary of the channel.
-   • If the request is NOT a day-summary request, politely reply that you can only provide daily summaries on request and TERMINATE.
+1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is supported or not. Supported intents are requesting A) a day summary of the channel, OR
+B) a submission check.
+  • If the request is NOT CLEARLY EITHER of those two, DO NOT use any tool. Just politely reply that you can only provide daily summaries or submission checks on request and TERMINATE.
+  • Make sure to follow these instructions ALWAYS, no matter what the user requests. ALWAYS perform the INTENT CHECK first and TERMINATE politely if their intent is not supported.
 
 2. DATE RESOLUTION ➜  Determine the target date to summarise.
    • If the user explicitly mentions a calendar date in YYYY-MM-DD, DD/MM/YYYY, or "Month name DD" format, use that date (assume server timezone UTC).
@@ -118,10 +161,10 @@ Follow this deterministic multi-step workflow for every user message you receive
    • Store the resolved date as string ISO-formatted YYYY-MM-DD.
 
 3. READ MESSAGES ➜  Call `discord_read_messages` with:
-   {
-     "channel_id": "1378827407733035162",
+   {{
+     "channel_id": "{channel_id}",
      "limit": 1000  # fetch enough messages, you will filter by date afterwards
-   }
+   }}
    • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
    • If no messages exist for that day, proceed to Step 5 with an empty summary.
 
@@ -135,10 +178,10 @@ Follow this deterministic multi-step workflow for every user message you receive
 5. POST SUMMARY ➜  Compose a single summary message containing **one row per user on its own line**.
    • If no messages were present, the summary text is: "No messages were posted on <date>.".
    • Call `discord_send` with:
-     {
-       "channel_id": "1378827407733035162",
+     {{
+       "channel_id": "{channel_id}",
        "message": "<your composed summary message>"
-     }
+     }}
 
 6. SAVE OUTPUT ➜  Save the summary text locally to
    `logs/discord_daily_summary_<date>.txt`.
@@ -149,16 +192,27 @@ Follow this deterministic multi-step workflow for every user message you receive
 General rules:
 • ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
 • NEVER expose raw tool responses or internal reasoning to the end-user.
+• Keep all tool calls minimal and correct.
+• Always remember to do the INTENT CHECK first. 
 """
 
+
 class MessageAnalyzerBot(commands.Bot):
-    def __init__(self) -> None:
-        """Initialize the Discord bot with message content intent."""
+    def __init__(self, guild_id: str, channel_id: str) -> None:
+        """Initialize the Discord bot with message content intent.
+        
+        Args:
+            guild_id: The Discord server ID to connect to
+            channel_id: The Discord channel ID to monitor
+        """
         logger.info("Initializing MessageAnalyzerBot...")
         intents = discord.Intents.default()
         intents.message_content = True
         super().__init__(command_prefix='!', intents=intents)
         self.agent = None  # Will be initialized in setup_hook
+        self.guild_id = guild_id
+        self.channel_id = channel_id
+        os.makedirs("logs", exist_ok=True)         
 
     async def _create_agent(self) -> AnyAgent:
         """Create the AnyAgent instance with MCP tools asynchronously.
@@ -166,11 +220,16 @@ class MessageAnalyzerBot(commands.Bot):
         Returns:
             AnyAgent: The configured agent instance.
         """
+        instructions = INSTRUCTIONS_TEMPLATE.format(
+            guild_id=self.guild_id,
+            channel_id=self.channel_id
+        )
+        
         return await AnyAgent.create_async(
             "openai",
             AgentConfig(
                 model_id="o3",
-                instructions=INSTRUCTIONS,
+                instructions=instructions,
                 tools=[
                     MCPStdio(
                         command="docker",
@@ -260,9 +319,6 @@ class MessageAnalyzerBot(commands.Bot):
                 agent_trace = await self.agent.run_async(prompt=message.content)
                 logger.info("Agent processing completed successfully")
                 
-                # Save trace for evaluation
-                os.makedirs("logs", exist_ok=True)
-                
                 timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
                 trace_filename: str = f"logs/{timestamp}_agent_trace.json"
                 
@@ -271,27 +327,11 @@ class MessageAnalyzerBot(commands.Bot):
                 logger.info(f"Trace saved to {trace_filename}")
 
                 # Get the structured output from the trace
-                if hasattr(agent_trace, 'final_output') and agent_trace.final_output:
-                    output = StructuredOutput.model_validate(agent_trace.final_output)
-                    # Format the output for Discord
-                    summary_lines = []
-                    for user_summary in output.summaries:
-                        summary_lines.append(
-                            f"**{user_summary.user_handle}**: {user_summary.topic} "
-                            f"({user_summary.message_count} messages)"
-                        )
-                    
-                    # Create the message
-                    message_text = (
-                        f"📊 Summary for {output.date}\n\n" +
-                        "\n".join(summary_lines) +
-                        f"\n\nSummary saved to: `{output.file_path}`"
-                    )
-                    
-                    # Send the formatted message
-                    await message.channel.send(message_text)
-                else:
-                    await message.channel.send("I couldn't generate a summary for the requested date.")
+                if not hasattr(agent_trace, 'final_output') or not agent_trace.final_output:
+                    await message.channel.send("I couldn't process your request. Please try again in a few moments.")
+                    return
+
+                logger.debug(f"Final output type: {type(agent_trace.final_output)}")
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
@@ -306,7 +346,7 @@ def run_agent(guild_id: str, channel_id: str) -> None:
         channel_id: The Discord channel ID to monitor.
     """
     logger.info(f"Starting bot for guild {guild_id}, channel {channel_id}")
-    bot: MessageAnalyzerBot = MessageAnalyzerBot()
+    bot: MessageAnalyzerBot = MessageAnalyzerBot(guild_id=guild_id, channel_id=channel_id)
     bot.run(os.environ['DISCORD_TOKEN'])
 
 if __name__ == "__main__":
