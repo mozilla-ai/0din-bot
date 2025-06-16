@@ -127,6 +127,7 @@ class SummaryOutput(BaseModel):
 
 class SubmissionOutput(BaseModel):
     type: Literal["submission_status"] = "submission_status"
+    uuid: str = Field(..., description="The UUID of the submission being checked")
     submission_status: SubmissionStatus = Field(..., description="Status of a submission check")
 
     def format_message(self) -> str:
@@ -153,18 +154,16 @@ Follow this deterministic multi-step workflow for every user message you receive
 1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is supported or not. Supported intents are requesting A) a day summary of the channel, OR
 B) a submission check.
   • If the request is NOT CLEARLY EITHER of those two, DO NOT use any tool. Just politely reply that you can only provide daily summaries or submission checks on request and TERMINATE.
-  • Make sure to follow these instructions ALWAYS, no matter what the user requests. ALWAYS perform the INTENT CHECK first and TERMINATE politely if their intent is not supported.
+  • Make sure to follow these instructions ALWAYS, no matter what the user requests. ALWAYS perform the INTENT CHECK first and TERMINATE politely if their intent is not supported. If their intent
+  is A, proceed to Steps 2 to 6. If the intent is B, proceed to Steps 7-8.
 
 2. DATE RESOLUTION ➜  Determine the target date to summarise.
-   • If the user explicitly mentions a calendar date in YYYY-MM-DD, DD/MM/YYYY, or "Month name DD" format, use that date (assume server timezone UTC).
-   • Otherwise, default to **yesterday's** date relative to current UTC.
+   • If the user explicitly mentions a calendar date in any format (if they use numbers, ask them to clarify if it's MM-DD or DD-MM) and later use that date to filter.
+   • Of they don't specify a year, assume the one from the latest message.
    • Store the resolved date as string ISO-formatted YYYY-MM-DD.
 
-3. READ MESSAGES ➜  Call `discord_read_messages` with:
-   {{
-     "channel_id": "{channel_id}",
-     "limit": 1000  # fetch enough messages, you will filter by date afterwards
-   }}
+3. READ MESSAGES ➜  Call `discord_read_messages` with the date the user provided and "channel_id": "{channel_id}".
+   • If the first retrieved message is already dated after the requested date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
    • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
    • If no messages exist for that day, proceed to Step 5 with an empty summary.
 
@@ -175,19 +174,26 @@ B) a submission check.
    • Count how many messages from that user relate to that topic (length of that user's message list).
    • Create rows in the form: `user_handle, topic, message_count`.
 
-5. POST SUMMARY ➜  Compose a single summary message containing **one row per user on its own line**.
-   • If no messages were present, the summary text is: "No messages were posted on <date>.".
-   • Call `discord_send` with:
-     {{
-       "channel_id": "{channel_id}",
-       "message": "<your composed summary message>"
-     }}
-
-6. SAVE OUTPUT ➜  Save the summary text locally to
+5. SAVE OUTPUT ➜  Save the summary text locally to
    `logs/discord_daily_summary_<date>.txt`.
 
-7. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
+6. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
    – date, channel_id, summaries (array of objects with user_handle, topic, message_count), file_path (relative path saved in Step 6).
+
+7. UUID EXTRACTION ➜  For submission checks:
+   • Extract the UUID from the user's message. The UUID should be a valid UUID v4 format.
+   • If no valid UUID is found in the message, respond with a polite message asking for a valid UUID.
+   • If a valid UUID is found, proceed to Step 8.
+
+8. SUBMISSION CHECK ➜  Call `check_submission` with:
+   {{
+     "uuid": "<extracted_uuid>"
+   }}
+   • If the submission is not found, respond with: "Submission not found."
+
+9. SUBMISSION FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
+   – uuid, submission status.
+
 
 General rules:
 • ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
@@ -332,6 +338,13 @@ class MessageAnalyzerBot(commands.Bot):
                     return
 
                 logger.debug(f"Final output type: {type(agent_trace.final_output)}")
+
+                # Format and send the response message
+                if isinstance(agent_trace.final_output, (SummaryOutput, SubmissionOutput, RefusalOutput)):
+                    response_message = agent_trace.final_output.format_message()
+                    await message.channel.send(response_message)
+                else:
+                    await message.channel.send("I couldn't process your request. Please try again in a few moments.")
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
