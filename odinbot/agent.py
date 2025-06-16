@@ -138,14 +138,15 @@ class SubmissionOutput(BaseModel):
             f"Details: {status.details}"
         )
 
-class RefusalOutput(BaseModel):
-    type: Literal["refusal"] = "refusal"
-    refusal_reason: str = Field(..., description="The reason for the refusal")
+class AgentResponse(BaseModel):
+    type: Literal["agent_response"] = "agent_response"
+    response_type: str = Field(..., description="The type of response (e.g., 'refusal', 'question', 'clarification')")
+    message: str = Field(..., description="The actual response message from the agent")
 
     def format_message(self) -> str:
-        return f"🚫 Refusal: {self.refusal_reason}"
+        return f"{self.message}"
 
-StructuredOutput = Union[SummaryOutput, SubmissionOutput, RefusalOutput]
+StructuredOutput = Union[SummaryOutput, SubmissionOutput, AgentResponse]
 
 # ========= System Instructions =========
 INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
@@ -159,11 +160,11 @@ B) a submission check.
 
 2. DATE RESOLUTION ➜  Determine the target date to summarise.
    • If the user explicitly mentions a calendar date in any format (if they use numbers, ask them to clarify if it's MM-DD or DD-MM) and later use that date to filter.
-   • Of they don't specify a year, assume the one from the latest message.
-   • Store the resolved date as string ISO-formatted YYYY-MM-DD.
+   • If they don't specify a year, don't assume for now and leave it empty.
 
 3. READ MESSAGES ➜  Call `discord_read_messages` with the date the user provided and "channel_id": "{channel_id}".
-   • If the first retrieved message is already dated after the requested date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
+   • Check the first retrieved message's date. If the year was unknown, take the one from this message. If the requested date is before this first message's date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
+   • Store the resolved date as string ISO-formatted YYYY-MM-DD.
    • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
    • If no messages exist for that day, proceed to Step 5 with an empty summary.
 
@@ -340,7 +341,7 @@ class MessageAnalyzerBot(commands.Bot):
                 logger.debug(f"Final output type: {type(agent_trace.final_output)}")
 
                 # Format and send the response message
-                if isinstance(agent_trace.final_output, (SummaryOutput, SubmissionOutput, RefusalOutput)):
+                if isinstance(agent_trace.final_output, (SummaryOutput, SubmissionOutput, AgentResponse)):
                     response_message = agent_trace.final_output.format_message()
                     await message.channel.send(response_message)
                 else:
