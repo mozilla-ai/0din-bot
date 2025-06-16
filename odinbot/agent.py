@@ -50,49 +50,6 @@ def parse_scan_result(data: dict) -> str:
     import json
     return f"```json\n{json.dumps(data, indent=2)}\n```"
 
-async def check_odin_api(uuid: str) -> str:
-    """Check a UUID in the ODIN threat feed.
-    
-    Args:
-        uuid: The UUID to check
-        
-    Returns:
-        str: The scan result message
-    """
-    if not is_valid_uuid(uuid):
-        return INVALID_UUID_MSG
-    
-    api_key = os.getenv("ODIN_API_KEY")
-    if not api_key:
-        logger.error("ODIN_API_KEY not set in environment.")
-        return API_KEY_NOT_CONFIGURED_MSG
-    
-    api_url = f"{API_BASE_URL}{uuid}"
-    headers = {
-        "accept": "application/json",
-        "Authorization": api_key
-    }
-    
-    try:
-        async with httpx.AsyncClient(timeout=15) as client:
-            response = await client.get(api_url, headers=headers)
-        logger.info(f'API request to {api_url} returned status {response.status_code}')
-    except Exception as e:
-        logger.error(f"API request failed: {e}")
-        return API_REQUEST_FAILED_MSG.format(error=e)
-    
-    if response.status_code != 200:
-        logger.error(f"API returned status code {response.status_code}: {response.text}")
-        return f"{API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text)}\nDid you provide a valid UUID?"
-    
-    try:
-        data = response.json()
-    except Exception as e:
-        logger.error(f'Error parsing JSON response: {e}')
-        return response.text
-
-    return parse_scan_result(data)
-
 # ========= Structured output definition =========
 class UserTopicSummary(BaseModel):
     user_handle: str = Field(..., description="Discord username or nickname of the poster")
@@ -279,6 +236,11 @@ class MessageAnalyzerBot(commands.Bot):
             description="Check the status of the bot",
             callback=self.health_command
         ))
+        self.tree.add_command(app_commands.Command(
+            name="check",
+            description="Check a UUID in the ODIN threat feed",
+            callback=self.check_command
+        ))
         await self.tree.sync()
         logger.info("Slash commands registered")
 
@@ -295,6 +257,18 @@ class MessageAnalyzerBot(commands.Bot):
         """
         logger.debug(f"Received /health command from {interaction.user}")
         await interaction.response.send_message("Bot is operational!")
+
+    async def check_command(self, interaction: discord.Interaction, uuid: str) -> None:
+        """Handle the /check command.
+        
+        Args:
+            interaction: The Discord interaction object.
+            uuid: The UUID to check in the ODIN threat feed.
+        """
+        logger.debug(f"Received /check command from {interaction.user} for UUID {uuid}")
+        
+        result = await check_submission(uuid)
+        await interaction.response.send_message(result)
 
     async def on_message(self, message: discord.Message) -> None:
         """Handle incoming messages.
