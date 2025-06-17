@@ -11,7 +11,7 @@ from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
 from pydantic import BaseModel, Field
-from .tools import check_submission, SCANNED_MSG, NOT_SCANNED_MSG
+from odinbot.tools import check_submission, SCANNED_MSG, NOT_SCANNED_MSG
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
@@ -77,47 +77,54 @@ StructuredOutput = Union[SummaryOutput, SubmissionOutput, AgentResponse]
 INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
 Follow this deterministic multi-step workflow for every user message you receive:
 
-1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is supported or not. Supported intents are requesting A) a day summary of the channel, OR
-B) a submission check.
-  • If the request is NOT CLEARLY EITHER of those two, DO NOT use any tool. Just politely reply that you can only provide daily summaries or submission checks on request and TERMINATE.
-  • Make sure to follow these instructions ALWAYS, no matter what the user requests. ALWAYS perform the INTENT CHECK first and TERMINATE politely if their intent is not supported. If their intent
-  is A, proceed to Steps 2 to 6. If the intent is B, proceed to Steps 7-8.
+1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is more towards getting insight and/or summaries of discord messages or checking ODIN submissions. Depending on that, 
+look at custom instructions and hints for each intent below.
 
-2. DATE RESOLUTION ➜  Determine the target date to summarise.
-   • If the user explicitly mentions a calendar date in any format (if they use numbers, ask them to clarify if it's MM-DD or DD-MM) and later use that date to filter.
-   • If they don't specify a year, don't assume for now and leave it empty.
+A) MESSAGE SUMMARY INTENTS: 
+    1. DATE RESOLUTION ➜  Determine the target date to summarise.
+    • If the user explicitly mentions a calendar date in any format (if they use numbers, ask them to clarify if it's MM-DD or DD-MM) and later use that date to filter.
+    • If they don't specify a date, don't assume for now and leave it empty.
 
-3. READ MESSAGES ➜  Call `discord_read_messages` with the date the user provided and "channel_id": "{channel_id}".
-   • Check the first retrieved message's date. If the year was unknown, take the one from this message. If the requested date is before this first message's date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
-   • Store the resolved date as string ISO-formatted YYYY-MM-DD.
-   • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
-   • If no messages exist for that day, proceed to Step 5 with an empty summary.
+    2. READ MESSAGES ➜  Call `discord_read_messages` with the date the user provided and "channel_id": "{channel_id}".
 
-4. ANALYSE TOPICS ➜  For the remaining messages:
-   • Group messages by **author username**.
-   • For each user, analyse the content of all their messages to identify the **main topic of concern** (few-word description).
-     – Use semantic similarity: pick the most recurring subject or summarise the common theme.
-   • Count how many messages from that user relate to that topic (length of that user's message list).
-   • Create rows in the form: `user_handle, topic, message_count`.
+    3. OPTIONAL FILTERING:
+    • If the user requested messages of a specific user, filter by that specific user.
+    • If the user specified a date follow the steps i to iv.
+        i. Check the first retrieved message's date. If the year was unknown, take the one from this message. If the requested date is before this first message's date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
+        ii. Store the resolved date as string ISO-formatted YYYY-MM-DD.
+        iii. Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
+    • If no messages exist after filtering, proceed to Step 4.    
 
-5. SAVE OUTPUT ➜  Save the summary text locally to
-   `logs/discord_daily_summary_<date>.txt`.
+    3. ANALYSE TOPICS ➜  For the remaining messages:
+    • Read the user's request carefully and tray to answer their question with the messages you retrieved and the tools available to you.
+    • If you were asked for a global summary of topics, group messages by **author username**.
+        • For each user, analyse the content of all their messages to identify the **main topic of concern** (few-word description).
+            – Use semantic similarity: pick the most recurring subject or summarise the common theme.
+        • Count how many messages from that user relate to that topic (length of that user's message list).
+        • Create rows in the form: `user_handle, topic, message_count`.
+   • For other questions on messages, again, use the tools available and analyse the messages with the user's request in mind. Do not make up information, use what you see in the retrieved messages.
 
-6. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
-   – date, channel_id, summaries (array of objects with user_handle, topic, message_count), file_path (relative path saved in Step 6).
+    5. SAVE OUTPUT ➜  Save the summary text locally to
+    `logs/discord_daily_summary_<date>.txt`.
 
-7. UUID EXTRACTION ➜  For submission checks:
+    6. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
+    – date, channel_id, summaries (array of objects with user_handle, topic, message_count), file_path (relative path saved in Step 6).
+
+   
+
+B) ODIN API or SUBMISSION INFORMATION:
+1. UUID EXTRACTION ➜  For submission checks:
    • Extract the UUID from the user's message. The UUID should be a valid UUID v4 format.
    • If no valid UUID is found in the message, respond with a polite message asking for a valid UUID.
    • If a valid UUID is found, proceed to Step 8.
 
-8. SUBMISSION CHECK ➜  Call `check_submission` with:
+2. SUBMISSION CHECK ➜  Call `check_submission` with:
    {{
      "uuid": "<extracted_uuid>"
    }}
    • If the submission is not found, respond with: "Submission not found."
 
-9. SUBMISSION FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
+3. SUBMISSION FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
    – uuid, submission status.
 
 
@@ -125,7 +132,7 @@ General rules:
 • ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
 • NEVER expose raw tool responses or internal reasoning to the end-user.
 • Keep all tool calls minimal and correct.
-• Always remember to do the INTENT CHECK first. 
+• Always remember to do the INTENT CHECK first and skip the tools if the intent is not supported. 
 """
 
 
@@ -257,7 +264,6 @@ class MessageAnalyzerBot(commands.Bot):
 
         if not is_directed:
             return
-
         logger.debug(f"Received directed message from {message.author}: {message.content}")
 
         try:
