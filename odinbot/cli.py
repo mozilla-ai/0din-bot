@@ -1,22 +1,14 @@
 """
-Command-line interface for launching either the UUID checker bot or the message analyzer bot.
+Command-line interface for launching the message analyzer bot.
 """
 import sys
 import click
 from loguru import logger
 
-from .bot import main as run_uuid_bot
-
 @click.group()
 def cli():
-    """ODIN Discord Bot - Choose which bot to run."""
+    """ODIN Discord Bot CLI."""
     pass
-
-@cli.command()
-def bot():
-    """Run the UUID checker bot that verifies UUIDs against the ODIN Threatfeed API."""
-    logger.info("Starting UUID checker bot...")
-    run_uuid_bot()
 
 @cli.command()
 @click.option('--guild-id', required=True, help='Discord GUILD_ID (server) to connect to')
@@ -25,7 +17,7 @@ def agent(guild_id: str, channel_id: str):
     """Run the message analyzer bot that summarizes Discord messages."""
     logger.info(f"Starting message analyzer bot for guild {guild_id}, channel {channel_id}...")
     # Lazy load agent functionality only when needed
-    from .agent import run_agent
+    from odinbot.agent import run_agent
     run_agent(guild_id=guild_id, channel_id=channel_id)
 
 def main():
