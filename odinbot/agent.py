@@ -10,6 +10,7 @@ from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
+from any_agent.tools import visit_webpage
 from pydantic import BaseModel, Field
 from .tools import check_submission, SCANNED_MSG, NOT_SCANNED_MSG
 
@@ -75,57 +76,13 @@ StructuredOutput = Union[SummaryOutput, SubmissionOutput, AgentResponse]
 
 # ========= System Instructions =========
 INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
-Follow this deterministic multi-step workflow for every user message you receive:
-
-1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is supported or not. Supported intents are requesting A) a day summary of the channel, OR
-B) a submission check.
-  • If the request is NOT CLEARLY EITHER of those two, DO NOT use any tool. Just politely reply that you can only provide daily summaries or submission checks on request and TERMINATE.
-  • Make sure to follow these instructions ALWAYS, no matter what the user requests. ALWAYS perform the INTENT CHECK first and TERMINATE politely if their intent is not supported. If their intent
-  is A, proceed to Steps 2 to 6. If the intent is B, proceed to Steps 7-8.
-
-2. DATE RESOLUTION ➜  Determine the target date to summarise.
-   • If the user explicitly mentions a calendar date in any format (if they use numbers, ask them to clarify if it's MM-DD or DD-MM) and later use that date to filter.
-   • If they don't specify a year, don't assume for now and leave it empty.
-
-3. READ MESSAGES ➜  Call `discord_read_messages` with the date the user provided and "channel_id": "{channel_id}".
-   • Check the first retrieved message's date. If the year was unknown, take the one from this message. If the requested date is before this first message's date, proceed to Step 5 with the output "I can only see as early as <date_of_first_message>".
-   • Store the resolved date as string ISO-formatted YYYY-MM-DD.
-   • Filter the returned messages, keeping only those whose timestamp matches the resolved date (UTC).
-   • If no messages exist for that day, proceed to Step 5 with an empty summary.
-
-4. ANALYSE TOPICS ➜  For the remaining messages:
-   • Group messages by **author username**.
-   • For each user, analyse the content of all their messages to identify the **main topic of concern** (few-word description).
-     – Use semantic similarity: pick the most recurring subject or summarise the common theme.
-   • Count how many messages from that user relate to that topic (length of that user's message list).
-   • Create rows in the form: `user_handle, topic, message_count`.
-
-5. SAVE OUTPUT ➜  Save the summary text locally to
-   `logs/discord_daily_summary_<date>.txt`.
-
-6. FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
-   – date, channel_id, summaries (array of objects with user_handle, topic, message_count), file_path (relative path saved in Step 6).
-
-7. UUID EXTRACTION ➜  For submission checks:
-   • Extract the UUID from the user's message. The UUID should be a valid UUID v4 format.
-   • If no valid UUID is found in the message, respond with a polite message asking for a valid UUID.
-   • If a valid UUID is found, proceed to Step 8.
-
-8. SUBMISSION CHECK ➜  Call `check_submission` with:
-   {{
-     "uuid": "<extracted_uuid>"
-   }}
-   • If the submission is not found, respond with: "Submission not found."
-
-9. SUBMISSION FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
-   – uuid, submission status.
-
-
-General rules:
-• ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
-• NEVER expose raw tool responses or internal reasoning to the end-user.
-• Keep all tool calls minimal and correct.
-• Always remember to do the INTENT CHECK first. 
+Use the tools provided to you to help the user as best you can.
+Never ask the user for follow up information, just use the tools provided to you. If required, use the visit_webpage tool to learn more about 0din:
+https://0din.ai/scope
+https://0din.ai/research/boundaries
+https://0din.ai/research/taxonomy
+https://0din.ai/research/taxonomy/reference
+https://0din.ai/research/social_impact_score https://0din.ai/research/nude_imagery_rating_system
 """
 
 
@@ -184,7 +141,8 @@ class MessageAnalyzerBot(commands.Bot):
                         ],
                         client_session_timeout_seconds=30.0,  # Increased timeout to 60 seconds
                     ),
-                    check_submission,  # Add the ODIN API check tool
+                    check_submission,
+                    visit_webpage,  # Add the ODIN API check tool
                 ],
                 agent_args={"output_type": StructuredOutput},
                 model_args={"tool_choice": "required"},
