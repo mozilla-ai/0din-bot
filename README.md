@@ -17,11 +17,26 @@ A Discord bot that:
 
 - **Hardware:** Any system capable of running Python 3.11+
 - **Software:**
-  - Python 3.11 or higher 
+  - Python 3.11 or higher
   - [uv](https://github.com/astral-sh/uv) (for dependency management and running)
   - A Discord account and a Discord server where you have permission to add bots
   - A Discord Bot Token ([Create one here](https://discord.com/developers/applications))
   - An ODIN API Key (for `/check` command)
+
+## Installation
+
+### For Use
+To install the bot for regular use (runtime dependencies only):
+```sh
+uv pip install -e .
+```
+
+### For Development and Testing
+To install the bot with all development and test dependencies:
+```sh
+uv pip install -e '.[test]'
+```
+This will install all runtime and test dependencies (pytest, pytest-asyncio, pytest-mock, etc.).
 
 ## Setup
 
@@ -31,10 +46,7 @@ A Discord bot that:
    cd 0din-bot
    ```
 
-2. **Install the package in development mode:**
-   ```sh
-   uv pip install -e .
-   ```
+2. **Install the package** (see Installation section above).
 
 3. **Create a Discord bot and get your token:**
    - Go to the [Discord Developer Portal](https://discord.com/developers/applications)
@@ -85,11 +97,14 @@ A Discord bot that:
 
 ## Testing
 
-- Tests are located in `odinbot/tests/`.
+- Tests are located in `tests/`.
+- To install test dependencies, use:
+  ```sh
+  uv pip install -e '.[test]'
+  ```
 - To run the tests:
   ```sh
-  pip install pytest pytest-asyncio pytest-mock
-  pytest odinbot/tests/
+  uv run pytest tests/
   ```
 
 ## Notes
