@@ -5,7 +5,6 @@ import os
 import discord
 from loguru import logger
 from discord import app_commands
-import httpx
 from odinbot.tools import (
     check_submission,
     SCANNED_MSG,
