@@ -1,5 +1,5 @@
 """
-Tools for the ODIN Discord bot agent.
+ODIN API integration tools for the Discord bot agent.
 """
 import os
 from loguru import logger

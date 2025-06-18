@@ -11,7 +11,7 @@ from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
 from pydantic import BaseModel, Field
-from odinbot.tools import check_submission, get_threatfeed
+from odinbot.tools.odin import check_submission, get_threatfeed
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")

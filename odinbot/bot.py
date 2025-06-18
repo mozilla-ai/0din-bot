@@ -5,7 +5,7 @@ import os
 import discord
 from loguru import logger
 from discord import app_commands
-from odinbot.tools import (
+from odinbot.tools.odin import (
     check_submission,
     SCANNED_MSG,
     NOT_SCANNED_MSG

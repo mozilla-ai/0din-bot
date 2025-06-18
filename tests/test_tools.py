@@ -1,14 +1,14 @@
 import pytest
 import uuid
 from unittest.mock import patch, AsyncMock, MagicMock
-from odinbot.tools import (
-    is_valid_uuid,
-    parse_scan_result,
+from odinbot.tools.odin import (
     check_submission,
     SCANNED_MSG,
     NOT_SCANNED_MSG,
     API_KEY_NOT_CONFIGURED_MSG,
-    INVALID_UUID_MSG
+    INVALID_UUID_MSG,
+    is_valid_uuid,
+    parse_scan_result
 )
 
 # Test is_valid_uuid function
