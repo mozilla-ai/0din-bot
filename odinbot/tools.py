@@ -5,7 +5,6 @@ import os
 from loguru import logger
 import httpx
 import uuid as uuid_lib
-from typing import Optional
 
 # ========= API Constants =========
 API_BASE_URL: str = "https://0din.ai/api/v1/threatfeed/"
@@ -78,4 +77,63 @@ async def check_submission(uuid: str) -> str:
         logger.error(f'Error parsing JSON response: {e}')
         return response.text
 
-    return parse_scan_result(data) 
+    return parse_scan_result(data)
+
+async def get_threatfeed() -> dict:
+    """Fetch the full ODIN threat feed as raw JSON.
+    
+    Returns:
+        dict: The raw JSON response from the threat feed API, or an error dict.
+    """
+    api_key = os.getenv("ODIN_API_KEY")
+    if not api_key:
+        logger.error("ODIN_API_KEY not set in environment.")
+        return {"error": API_KEY_NOT_CONFIGURED_MSG}
+
+    api_url = API_BASE_URL  # No UUID, just the base endpoint
+    headers = {
+        "accept": "application/json",
+        "Authorization": api_key
+    }
+
+    try:
+        async with httpx.AsyncClient(timeout=15) as client:
+            response = await client.get(api_url, headers=headers)
+        logger.info(f'API request to {api_url} returned status {response.status_code}')
+    except Exception as e:
+        logger.error(f"API request failed: {e}")
+        return {"error": API_REQUEST_FAILED_MSG.format(error=e)}
+
+    if response.status_code != 200:
+        logger.error(f"API returned status code {response.status_code}: {response.text}")
+        return {"error": API_RETURNED_STATUS_MSG.format(status_code=response.status_code, text=response.text)}
+
+    try:
+        data = response.json()
+    except Exception as e:
+        logger.error(f'Error parsing JSON response: {e}')
+        return {"error": str(e), "raw": response.text}
+
+    return data
+
+def format_threatfeed_summary(feed_data: dict) -> str:
+    """Produce a formatted summary from the threat feed data.
+    
+    Args:
+        feed_data (dict): The raw JSON threat feed data.
+    Returns:
+        str: A human-readable summary of the feed.
+    """
+    if not isinstance(feed_data, dict):
+        return "Invalid feed data."
+    tickets = feed_data.get("tickets") or feed_data.get("results") or feed_data.get("data") or []
+    if not tickets:
+        return "No tickets found in the threat feed."
+    lines = ["ODIN Threat Feed Summary:"]
+    for ticket in tickets:
+        tid = ticket.get("id") or ticket.get("uuid") or "<no id>"
+        title = ticket.get("title") or ticket.get("summary") or ticket.get("description", "<no title>")
+        status = ticket.get("status", "<no status>")
+        severity = ticket.get("severity", "<no severity>")
+        lines.append(f"- [{tid}] {title} (Status: {status}, Severity: {severity})")
+    return "\n".join(lines) 

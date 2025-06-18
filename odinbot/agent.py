@@ -11,7 +11,7 @@ from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
 from pydantic import BaseModel, Field
-from odinbot.tools import check_submission, SCANNED_MSG, NOT_SCANNED_MSG
+from odinbot.tools import check_submission, get_threatfeed
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
@@ -191,7 +191,9 @@ class MessageAnalyzerBot(commands.Bot):
                         ],
                         client_session_timeout_seconds=30.0,  # Increased timeout to 60 seconds
                     ),
-                    check_submission,  # Add the ODIN API check tool
+                    check_submission,
+                    get_threatfeed,
+
                 ],
                 agent_args={"output_type": StructuredOutput},
                 model_args={"tool_choice": "required"},
