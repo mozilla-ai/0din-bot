@@ -2,6 +2,7 @@
 
 A Discord bot that:
 - Checks the scan status of a UUID in the ODIN Threatfeed API.
+- Fetches and summarizes the full ODIN threat feed.
 - Summarizes channel conversations by user and topic for a given date.
 - Responds to health checks and logs all activity.
 
@@ -9,6 +10,7 @@ A Discord bot that:
 
 - **/check <UUID>**: Query the ODIN Threatfeed API and report if the item has been scanned.
 - **/health**: Check if the bot is operational.
+- **Threat Feed Access**: The agent can fetch and summarize the full ODIN threat feed when requested.
 - **Message Summarization**: When mentioned with a request for a summary (optionally specifying a date or user), the bot summarizes the main topics discussed by each user in the channel for that date.
 - **Logging**: All agent traces and errors are logged to `logs/`.
 - **Local Summaries**: Summaries are saved to `logs/discord_daily_summary_<date>.txt`.
@@ -21,7 +23,7 @@ A Discord bot that:
   - [uv](https://github.com/astral-sh/uv) (for dependency management and running)
   - A Discord account and a Discord server where you have permission to add bots
   - A Discord Bot Token ([Create one here](https://discord.com/developers/applications))
-  - An ODIN API Key (for `/check` command)
+  - An ODIN API Key (for `/check` command and threat feed access)
 
 ## Installation
 
@@ -54,7 +56,7 @@ This will install all runtime and test dependencies (pytest, pytest-asyncio, pyt
    - Invite the bot to your server using the OAuth2 URL generator (scopes: `bot`, permissions: `Send Messages`, `Read Messages`)
 
 4. **Set your environment variables:**
-   - The `/check <UUID>` command requires a valid ODIN API key.
+   - The `/check <UUID>` command and threat feed access require a valid ODIN API key.
    - You must also set your Discord server's Guild ID and the channel ID you want the bot to monitor.
 
    ```sh
@@ -66,7 +68,7 @@ This will install all runtime and test dependencies (pytest, pytest-asyncio, pyt
 
 5. **Run the bot:**
    ```sh
-   uv run python -m odinbot.agent --guild_id $GUILD_ID --channel_id $CHANNEL_ID
+   uv run odinbot agent --guild-id $GUILD_ID --channel-id $CHANNEL_ID
    ```
    - Make sure you have set the `DISCORD_TOKEN`, `ODIN_API_KEY`, `GUILD_ID`, and `CHANNEL_ID` environment variables as described above.
    - The bot will start and monitor the specified channel in your server.
@@ -85,6 +87,14 @@ This will install all runtime and test dependencies (pytest, pytest-asyncio, pyt
   /health
   ```
   The bot will reply if it is operational.
+
+- **Access Threat Feed:**  
+  Mention the bot and ask about the threat feed, e.g.:
+  ```
+  @Bot show me the threat feed
+  @Bot what's in the threat feed today
+  ```
+  The bot will fetch and summarize the current ODIN threat feed.
 
 - **Summarize Channel Messages:**  
   Mention the bot and request a summary, e.g.:
