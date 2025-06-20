@@ -10,6 +10,7 @@ from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
 from any_agent.config import MCPStdio
+from any_agent.tools import search_web, visit_webpage
 from pydantic import BaseModel, Field
 from odinbot.tools.odin import check_submission, get_threatfeed
 
@@ -77,8 +78,8 @@ StructuredOutput = Union[SummaryOutput, SubmissionOutput, AgentResponse]
 INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
 Follow this deterministic multi-step workflow for every user message you receive:
 
-1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is more towards getting insight and/or summaries of discord messages or checking ODIN submissions. Depending on that, 
-look at custom instructions and hints for each intent below.
+1. INTENT CHECK  ➜  This is the most important step. First decide whether the user's intent is more towards getting insight and/or summaries of discord messages or checking 
+ODIN submissions. Depending on that, look at custom instructions and hints for each intent below. 
 
 A) MESSAGE SUMMARY INTENTS: 
     1. DATE RESOLUTION ➜  Determine the target date to summarise.
@@ -127,6 +128,14 @@ B) ODIN API or SUBMISSION INFORMATION:
 3. SUBMISSION FINAL JSON OUTPUT ➜  Respond with a Structured JSON object having:
    – uuid, submission status.
 
+C) Information on 0din in general:
+    You can visit the following webpages to get information on ODIN:
+    - https://0din.ai/scope
+    - https://0din.ai/research/boundaries
+    - https://0din.ai/research/taxonomy
+    - https://0din.ai/research/taxonomy/reference
+    - https://0din.ai/research/social_impact_score 
+    - https://0din.ai/research/nude_imagery_rating_system
 
 General rules:
 • ALWAYS use the provided tools for reading and sending Discord messages – do NOT invent data.
@@ -193,7 +202,8 @@ class MessageAnalyzerBot(commands.Bot):
                     ),
                     check_submission,
                     get_threatfeed,
-
+                    search_web,
+                    visit_webpage,
                 ],
                 agent_args={"output_type": StructuredOutput},
                 model_args={"tool_choice": "required"},
