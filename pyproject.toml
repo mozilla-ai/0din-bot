@@ -26,7 +26,8 @@ dependencies = [
     "fire>=0.5.0",       # CLI for agent
     "pydantic>=2.6.1",   # Data validation
     "click>=8.1.7",      # CLI framework
-    "docker>=7.0.0"      # For MCPStdio tool
+    "docker>=7.0.0",     # For MCPStdio tool
+    "pytz>=2024.1",      # Timezone handling
 ]
 
 [project.scripts]

@@ -2,7 +2,7 @@
 
 A Discord bot that:
 - Checks the scan status of a UUID in the ODIN Threatfeed API.
-- Fetches and summarizes the full ODIN threat feed.
+- Fetches the full ODIN threat feed.
 - Summarizes channel conversations by user and topic for a given date.
 - Responds to health checks and logs all activity.
 
