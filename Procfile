@@ -1,0 +1,1 @@
+worker: uv run odinbot agent --guild-id $GUILD_ID --channel-id $CHANNEL_ID 
