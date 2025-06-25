@@ -198,14 +198,14 @@ class MessageAnalyzerBot(commands.Bot):
                             "discord_login",
                             "discord_send",
                         ],
-                        client_session_timeout_seconds=30.0,  # Increased timeout to 60 seconds
+                        client_session_timeout_seconds=60.0,  # Increased timeout to 60 seconds
                     ),
                     check_submission,
                     get_threatfeed,
                     search_web,
                     visit_webpage,
                 ],
-                agent_args={"output_type": StructuredOutput},
+                output_type=StructuredOutput,
                 model_args={"tool_choice": "required"},
             ),
         )
@@ -294,7 +294,7 @@ class MessageAnalyzerBot(commands.Bot):
                 logger.info(f"Trace saved to {trace_filename}")
 
                 # Get the structured output from the trace
-                if not hasattr(agent_trace, 'final_output') or not agent_trace.final_output:
+                if not agent_trace.final_output:
                     await message.channel.send("I couldn't process your request. Please try again in a few moments.")
                     return
 
