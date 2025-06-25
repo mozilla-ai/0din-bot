@@ -1,2 +1,9 @@
+requirements.txt
+bot.*
+discord*.csv
+.ruff_cache/
+.pytest_cache/
+__pycache__/
 logs/
+*.log
 generated_workflows/ 
