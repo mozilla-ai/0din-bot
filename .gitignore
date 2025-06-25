@@ -202,3 +202,11 @@ cython_debug/
 .elasticbeanstalk/*
 !.elasticbeanstalk/*.cfg.yml
 !.elasticbeanstalk/*.global.yml
+
+bot.*
+discord*.csv
+.ruff_cache/
+.pytest_cache/
+__pycache__/
+logs/
+*.log
