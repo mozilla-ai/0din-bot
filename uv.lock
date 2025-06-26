@@ -2291,6 +2291,7 @@ dependencies = [
     { name = "loguru" },
     { name = "pydantic" },
     { name = "python-dotenv" },
+    { name = "pytz" },
 ]
 
 [package.optional-dependencies]
@@ -2315,6 +2316,7 @@ requires-dist = [
     { name = "pytest-asyncio", marker = "extra == 'test'", specifier = ">=0.21.0" },
     { name = "pytest-mock", marker = "extra == 'test'", specifier = ">=3.10.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
+    { name = "pytz", specifier = ">=2024.1" },
 ]
 provides-extras = ["test"]
 

@@ -13,6 +13,7 @@ from any_agent.config import MCPStdio
 from any_agent.tools import search_web, visit_webpage
 from pydantic import BaseModel, Field
 from odinbot.tools.odin import check_submission, get_threatfeed
+from odinbot.tools.date_utils import get_current_gmt_time
 
 # Configure logger
 logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
@@ -204,6 +205,7 @@ class MessageAnalyzerBot(commands.Bot):
                     get_threatfeed,
                     search_web,
                     visit_webpage,
+                    get_current_gmt_time,
                 ],
                 agent_args={"output_type": StructuredOutput},
                 model_args={"tool_choice": "required"},
@@ -235,6 +237,12 @@ class MessageAnalyzerBot(commands.Bot):
         """Handle bot ready event."""
         logger.info(f'Logged in as {self.user}')
         logger.info("Bot is ready!")
+        # Send a startup message to the configured channel
+        channel = self.get_channel(int(self.channel_id))
+        if channel:
+            await channel.send("Hi everyone!")
+        else:
+            logger.warning(f"Could not find channel with ID {self.channel_id} to send startup message.")
 
     async def health_command(self, interaction: discord.Interaction) -> None:
         """Handle the /health command.

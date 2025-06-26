@@ -198,3 +198,7 @@ cython_debug/
 .vscode/
 *.swp
 *.swo
+# Elastic Beanstalk Files
+.elasticbeanstalk/*
+!.elasticbeanstalk/*.cfg.yml
+!.elasticbeanstalk/*.global.yml
