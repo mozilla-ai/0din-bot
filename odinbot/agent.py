@@ -72,7 +72,15 @@ class AgentResponse(BaseModel):
     def format_message(self) -> str:
         return f"{self.message}"
 
-StructuredOutput = Union[SummaryOutput, SubmissionOutput, AgentResponse]
+# Convert Union to BaseModel for AgentConfig compatibility
+class StructuredOutput(BaseModel):
+    """Wrapper model for the Union type to satisfy AgentConfig's BaseModel requirement."""
+    response: Union[SummaryOutput, SubmissionOutput, AgentResponse] = Field(..., description="The structured response from the agent")
+    
+    def format_message(self) -> str:
+        """Delegate formatting to the individual response model."""
+        return self.response.format_message()
+
 
 # ========= System Instructions =========
 INSTRUCTIONS_TEMPLATE = """You are a Discord assistant agent embedded in server ID {guild_id} and channel ID {channel_id}.
@@ -300,12 +308,12 @@ class MessageAnalyzerBot(commands.Bot):
 
                 logger.debug(f"Final output type: {type(agent_trace.final_output)}")
 
-                # Format and send the response message
-                if isinstance(agent_trace.final_output, (SummaryOutput, SubmissionOutput, AgentResponse)):
-                    response_message = agent_trace.final_output.format_message()
-                    await message.channel.send(response_message)
-                else:
-                    await message.channel.send("I couldn't process your request. Please try again in a few moments.")
+                # This should never happen unless there is a bug such that the output_type was not set.
+                if not isinstance(agent_trace.final_output, StructuredOutput):
+                    raise ValueError(f"Expected StructuredOutput, got {type(agent_trace.final_output)}")
+                
+                response_message = agent_trace.final_output.format_message()
+                await message.channel.send(response_message)
 
         except Exception as e:
             logger.error(f"Error processing message: {e}")
