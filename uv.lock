@@ -1,5 +1,4 @@
 version = 1
-revision = 1
 requires-python = ">=3.11"
 resolution-markers = [
     "python_full_version >= '3.13'",
@@ -143,7 +142,7 @@ wheels = [
 
 [[package]]
 name = "any-agent"
-version = "0.19.1"
+version = "0.22.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "duckduckgo-search" },
@@ -158,9 +157,9 @@ dependencies = [
     { name = "rich" },
     { name = "tavily-python" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/80/ec/1781192d088fc7062b18f3bffb1dfeb88275866c635b8bc673fa200f6f78/any_agent-0.19.1.tar.gz", hash = "sha256:98c7906fdb070d3a99ab72ec0fa38a0452629fac34a56fa8333e8434539b57a3", size = 291793 }
+sdist = { url = "https://files.pythonhosted.org/packages/99/d4/e141acf20e14e2cdbe691a9cc01b21f735a1432c1d9a4ad019d08b02325d/any_agent-0.22.0.tar.gz", hash = "sha256:2e34145e2e68713c4a0236315c1654e771e9dc9f11a8c35911e53dbc44971561", size = 309957 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/ba/c3/fe08a446a5527670d037f872cd5b4dd5346e473b5105ce8def481bd9f7ec/any_agent-0.19.1-py3-none-any.whl", hash = "sha256:4a0dfaaf91e6ddc5ed5fd391753c859e196be0927867b076e62f2b6dd86a1d21", size = 75069 },
+    { url = "https://files.pythonhosted.org/packages/32/74/c06c979afe954a7fbf90068af651f5f5257c3faa7a507cebe59d593b0c4c/any_agent-0.22.0-py3-none-any.whl", hash = "sha256:f171501084720f03b2a94bf3c7c36a2d1d372dbbe0b6a7596b9e58b6651a201e", size = 82455 },
 ]
 
 [package.optional-dependencies]
@@ -711,9 +710,10 @@ wheels = [
 
 [[package]]
 name = "google-adk"
-version = "1.3.0"
+version = "1.4.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
+    { name = "anyio" },
     { name = "authlib" },
     { name = "click" },
     { name = "fastapi" },
@@ -729,16 +729,20 @@ dependencies = [
     { name = "opentelemetry-exporter-gcp-trace" },
     { name = "opentelemetry-sdk" },
     { name = "pydantic" },
+    { name = "python-dateutil" },
     { name = "python-dotenv" },
     { name = "pyyaml" },
+    { name = "requests" },
     { name = "sqlalchemy" },
+    { name = "starlette" },
     { name = "typing-extensions" },
     { name = "tzlocal" },
     { name = "uvicorn" },
+    { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/6a/7e/223f9244fcfb34042d9519ba13f8f017bdc077a628c204d3a6944682d4a6/google_adk-1.3.0.tar.gz", hash = "sha256:3be048cd40fb3a2c2f51ecb61233d78434cab2aba5a58507156c7daf2b9772fa", size = 1142535 }
+sdist = { url = "https://files.pythonhosted.org/packages/31/0e/c68b45d76b8634916054557827cac3575a8336fc72ef3aa29afeed4d3a3c/google_adk-1.4.2.tar.gz", hash = "sha256:f1d4ccf109aaeaf2af2ffd419432b337499e38d008e59944c036b84206f2806e", size = 1153068 }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/51/94/1b86404b81ea0f282694257e31fd4fb954c8cdcadebf1fde02a056979609/google_adk-1.3.0-py3-none-any.whl", hash = "sha256:a57f05633bd2d9937b9a73ca4fc4a5c7d9d1e2d28390c8df2be134d7d4b1f79c", size = 1306110 },
+    { url = "https://files.pythonhosted.org/packages/ff/fd/301204b06c9f306951f11bb00a9a2c0a96952c66a241161ebc72a39818aa/google_adk-1.4.2-py3-none-any.whl", hash = "sha256:5987096b4ad854aa2f9faa923e1632a65d69d21794766e44683f36505382ab6a", size = 1321176 },
 ]
 
 [[package]]
@@ -2303,7 +2307,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "any-agent", extras = ["all"], specifier = ">=0.1.0" },
+    { name = "any-agent", extras = ["all"], specifier = ">=0.22.0" },
     { name = "click", specifier = ">=8.1.7" },
     { name = "discord-py", specifier = ">=2.3.2" },
     { name = "docker", specifier = ">=7.0.0" },
@@ -2318,7 +2322,6 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "pytz", specifier = ">=2024.1" },
 ]
-provides-extras = ["test"]
 
 [[package]]
 name = "openai"
