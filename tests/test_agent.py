@@ -1,3 +1,4 @@
+from any_agent import AgentConfig
 import pytest
 from unittest.mock import AsyncMock, patch, PropertyMock, MagicMock
 from odinbot.agent import (
@@ -5,7 +6,9 @@ from odinbot.agent import (
     UserTopicSummary,
     SummaryOutput,
     SubmissionOutput,
-    AgentResponse
+    SubmissionStatus,
+    AgentResponse,
+    StructuredOutput
 )
 
 class AsyncContextManagerMock:
@@ -31,14 +34,15 @@ def test_format_message_methods():
     assert "topic1" in formatted
 
     # SubmissionOutput
+    submission_status = SubmissionStatus(
+        uuid="test-uuid",
+        status="processed",
+        details="Test details"
+    )
     sub_output = SubmissionOutput(
         type="submission_status",
         uuid="test-uuid",
-        submission_status={
-            "uuid": "test-uuid",
-            "status": "processed",
-            "details": "Test details"
-        }
+        submission_status=submission_status
     )
     assert "test-uuid" in sub_output.format_message()
 
@@ -99,15 +103,29 @@ async def test_on_message():
         message.channel = AsyncMock()
         message.channel.typing = lambda: AsyncContextManagerMock()
         mock_agent = AsyncMock()
+        agent_response = AgentResponse(
+            type="agent_response",
+            response_type="response",
+            message="Test response"
+        )
+        structured_output = StructuredOutput(response=agent_response)
         mock_agent.run_async.return_value = MagicMock(
-            final_output=AgentResponse(
-                type="agent_response",
-                response_type="response",
-                message="Test response"
-            ),
+            final_output=structured_output,
             model_dump_json=MagicMock(return_value="{}")
         )
         bot.agent = mock_agent
         await bot.on_message(message)
         mock_agent.run_async.assert_called_once_with(prompt="Test message")
-        message.channel.send.assert_called_once_with("Test response") 
+        message.channel.send.assert_called_once_with("Test response")
+
+
+def test_accepted_agent_config():
+    """ This test makes sure that we can create an agent config with the complex output type"""
+    agent = AgentConfig(
+        model_id="o3",
+        output_type=StructuredOutput,
+        instructions="You are a helpful assistant.",
+        tools=[],
+        model_args={"tool_choice": "required"}
+    )
+    assert agent.output_type == StructuredOutput
