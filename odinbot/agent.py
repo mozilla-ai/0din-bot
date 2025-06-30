@@ -188,27 +188,9 @@ class MessageAnalyzerBot(commands.Bot):
                 model_id="o3",
                 instructions=instructions,
                 tools=[
-                    MCPStdio(
-                        command="docker",
-                        args=[
-                            "run",
-                            "-i",
-                            "--rm",
-                            "-e",
-                            "DISCORD_TOKEN",
-                            "mcp/mcp-discord",
-                        ],
-                        env={
-                            "DISCORD_TOKEN": os.getenv("DISCORD_TOKEN"),
-                        },
-                        tools=[
-                            "test",
-                            "discord_read_messages",
-                            "discord_login",
-                            "discord_send",
-                        ],
-                        client_session_timeout_seconds=60.0,  # Increased timeout to 60 seconds
-                    ),
+                    MCPSse(
+                        url= os.environ.get('MCP_DISCORD', 'http://mcp-discord:80'),
+                    ), 
                     check_submission,
                     get_threatfeed,
                     search_web,
