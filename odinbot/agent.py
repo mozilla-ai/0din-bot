@@ -310,6 +310,7 @@ class MessageAnalyzerBot(commands.Bot):
 
                 # This should never happen unless there is a bug such that the output_type was not set.
                 if not isinstance(agent_trace.final_output, StructuredOutput):
+                    await message.channel.send("I couldn't process your request. Please try again in a few moments.")
                     raise ValueError(f"Expected StructuredOutput, got {type(agent_trace.final_output)}")
                 
                 response_message = agent_trace.final_output.format_message()
