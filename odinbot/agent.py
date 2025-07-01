@@ -16,7 +16,7 @@ from odinbot.tools.odin import check_submission, get_threatfeed
 from odinbot.tools.date_utils import get_current_gmt_time
 
 # Configure logger
-logger.add("bot.log", rotation="1 day", retention="7 days", level="DEBUG")
+logger.add("logs/bot.log", rotation="1 day", retention="7 days", level="DEBUG")
 
 load_dotenv()
 
