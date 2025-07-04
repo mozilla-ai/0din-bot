@@ -182,33 +182,17 @@ class MessageAnalyzerBot(commands.Bot):
             channel_id=self.channel_id
         )
         
+        MCP_DISCORD_URL = os.environ.get('MCP_DISCORD', 'http://localhost:8080/mcp')
+        logger.info(f"{MCP_DISCORD_URL=}")
         return await AnyAgent.create_async(
             "openai",
             AgentConfig(
                 model_id="o3",
                 instructions=instructions,
                 tools=[
-                    MCPStdio(
-                        command="docker",
-                        args=[
-                            "run",
-                            "-i",
-                            "--rm",
-                            "-e",
-                            "DISCORD_TOKEN",
-                            "mcp/mcp-discord",
-                        ],
-                        env={
-                            "DISCORD_TOKEN": os.getenv("DISCORD_TOKEN"),
-                        },
-                        tools=[
-                            "test",
-                            "discord_read_messages",
-                            "discord_login",
-                            "discord_send",
-                        ],
-                        client_session_timeout_seconds=60.0,  # Increased timeout to 60 seconds
-                    ),
+                    MCPSse(
+                        url= MCP_DISCORD_URL,
+                    ), 
                     check_submission,
                     get_threatfeed,
                     search_web,

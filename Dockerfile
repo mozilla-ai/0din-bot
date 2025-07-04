@@ -14,8 +14,7 @@ RUN useradd -m odinuser
 WORKDIR /app
 
 # Only copy files needed for dependency install first (for Docker cache efficiency)
-COPY pyproject.toml uv.lock README.md ./
-COPY odinbot/ ./odinbot/
+COPY pyproject.toml uv.lock README.md odinbot/ ./
 
 # Install dependencies (including test dependencies for pytest) in editable mode
 RUN uv pip install --system --no-cache-dir -e '.[test]'
@@ -29,5 +28,5 @@ RUN mkdir -p logs && chown -R odinuser:odinuser logs
 # Switch to non-root user
 USER odinuser
 
-# Remove ENTRYPOINT, keep only CMD for flexible container usage
+# Environment variables GUILD_ID and CHANNEL_ID must be set for the bot to start correctly
 CMD ["odinbot", "agent", "--guild-id", "${GUILD_ID}", "--channel-id", "${CHANNEL_ID}"] 
