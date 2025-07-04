@@ -1,4 +1,4 @@
-.PHONY: build run test
+.PHONY: build run test up down
 
 IMAGE_NAME=odinbot:latest
 GUILD_ID?=TESTING_GUILD_ID
@@ -25,3 +25,11 @@ test: build
 	  -e CHANNEL_ID=$(CHANNEL_ID) \
 	  $(IMAGE_NAME) \
 	  pytest tests/ 
+
+# 'build' is a prerequisite for 'up', so the image is always built before starting services
+up: build
+	docker-compose up -d
+
+# Stop docker-compose services
+down:
+	docker-compose down 
