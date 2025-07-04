@@ -182,6 +182,8 @@ class MessageAnalyzerBot(commands.Bot):
             channel_id=self.channel_id
         )
         
+        MCP_DISCORD_URL = os.environ.get('MCP_DISCORD', 'http://localhost:8080/mcp')
+        logger.info(f"{MCP_DISCORD_URL=}")
         return await AnyAgent.create_async(
             "openai",
             AgentConfig(
@@ -189,7 +191,7 @@ class MessageAnalyzerBot(commands.Bot):
                 instructions=instructions,
                 tools=[
                     MCPSse(
-                        url= os.environ.get('MCP_DISCORD', 'http://mcp-discord:80'),
+                        url= MCP_DISCORD_URL,
                     ), 
                     check_submission,
                     get_threatfeed,
