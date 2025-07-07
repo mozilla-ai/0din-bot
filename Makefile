@@ -28,10 +28,10 @@ test: build
 	  pytest tests/
 
 up: build
-	docker-compose up -d
+	docker compose up -d
 
 down:
-	docker-compose down
+	docker compose down
 
 debug: build
 	docker run --rm -it \
