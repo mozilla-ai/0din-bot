@@ -1,11 +1,11 @@
-.PHONY: build run test up down debug build-test
+.PHONY: build run test up down debug
 
 IMAGE_NAME=odinbot:latest
 GUILD_ID?=TESTING_GUILD_ID
 CHANNEL_ID?=TESTING_NOISE_CHANNEL_ID
 
 build:
-	docker build --target prod -t odinbot:latest .
+	docker build -t $(IMAGE_NAME) .
 
 run: build
 	docker run --rm \
@@ -16,10 +16,7 @@ run: build
 	  -e CHANNEL_ID=$(CHANNEL_ID) \
 	  $(IMAGE_NAME)
 
-build-test: build
-	docker build --target test -t odinbot:latest.tests .
-
-test: build-test
+test: build
 	docker run --rm \
 	  -e DISCORD_TOKEN=$$DISCORD_TOKEN \
 	  -e ODIN_API_KEY=$$ODIN_API_KEY \
@@ -27,7 +24,7 @@ test: build-test
 	  -e GUILD_ID=$(GUILD_ID) \
 	  -e CHANNEL_ID=$(CHANNEL_ID) \
 	  -v $(PWD)/tests:/app/tests \
-	  odinbot:latest.tests \
+	  $(IMAGE_NAME) \
 	  pytest tests/
 
 up: build
