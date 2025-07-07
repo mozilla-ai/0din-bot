@@ -35,7 +35,7 @@ odinbot = "odinbot.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["odinbot"]
+include = ["odinbot", "odinbot.*"]
 exclude = ["logs", "*.log"]
 
 [tool.black]
