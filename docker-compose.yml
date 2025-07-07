@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  odinbot:
+    image: odinbot:latest
+    restart: unless-stopped
+    depends_on:
+      - mcp-discord
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - ODIN_API_KEY=${ODIN_API_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - GUILD_ID=${TESTING_GUILD_ID}
+      - CHANNEL_ID=${TESTING_NOISE_CHANNEL_ID}
+      # MCP_DISCORD options:
+      # - Use http://mcp-discord:8080/mcp if both services are in Docker Compose (container-to-container)
+      # - Use http://host.docker.internal:8080/mcp if MCP server runs on the host (container-to-host)
+      - MCP_DISCORD=${MCP_DISCORD}
+    volumes:
+      - ./logs:/app/logs
+
+
+  mcp-discord:
+    image: my-mcp-discord
+    restart: unless-stopped
+    environment:
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+    ports:
+      - "8080:8080"

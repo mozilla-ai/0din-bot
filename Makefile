@@ -1,4 +1,4 @@
-.PHONY: build run test
+.PHONY: build run test up down debug
 
 IMAGE_NAME=odinbot:latest
 GUILD_ID?=TESTING_GUILD_ID
@@ -23,5 +23,23 @@ test: build
 	  -e OPENAI_API_KEY=$$OPENAI_API_KEY \
 	  -e GUILD_ID=$(GUILD_ID) \
 	  -e CHANNEL_ID=$(CHANNEL_ID) \
+	  -v $(PWD)/tests:/app/tests \
 	  $(IMAGE_NAME) \
-	  pytest tests/ 
+	  pytest tests/
+
+up: build
+	docker compose up -d
+
+down:
+	docker compose down
+
+debug: build
+	docker run --rm -it \
+	  -e DISCORD_TOKEN=$$DISCORD_TOKEN \
+	  -e ODIN_API_KEY=$$ODIN_API_KEY \
+	  -e OPENAI_API_KEY=$$OPENAI_API_KEY \
+	  -e GUILD_ID=$(GUILD_ID) \
+	  -e CHANNEL_ID=$(CHANNEL_ID) \
+	  -v $(PWD)/tests:/app/tests \
+	  $(IMAGE_NAME) \
+	  /bin/sh 
