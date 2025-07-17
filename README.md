@@ -93,7 +93,7 @@ make down
    - Invite the bot to your server using the OAuth2 URL generator (scopes: `bot`, permissions: `Send Messages`, `Read Messages`)
 
 4. **Set your environment variables:**
-   See the instructions above, in the Docker setup section.
+   See the instructions above, in the "Docker setup" section.
 
 5. **Run the bot:**
    ```sh
