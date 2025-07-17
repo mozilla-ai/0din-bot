@@ -42,4 +42,4 @@ debug: build
 	  -e CHANNEL_ID=$(CHANNEL_ID) \
 	  -v $(PWD)/tests:/app/tests \
 	  $(IMAGE_NAME) \
-	  /bin/sh 
+	  /bin/sh

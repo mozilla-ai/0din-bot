@@ -1,5 +1,7 @@
-import pytest
 from unittest.mock import AsyncMock
+
+import pytest
+
 
 @pytest.fixture
 def mock_env_vars():
@@ -8,6 +10,7 @@ def mock_env_vars():
         m.setenv("DISCORD_TOKEN", "test-token")
         m.setenv("ODIN_API_KEY", "test-api-key")
         yield
+
 
 @pytest.fixture
 def mock_discord_message():
@@ -21,6 +24,7 @@ def mock_discord_message():
     message.reference = None
     return message
 
+
 @pytest.fixture
 def mock_discord_interaction():
     """Fixture to create a mock Discord interaction."""
@@ -28,4 +32,4 @@ def mock_discord_interaction():
     interaction.user = AsyncMock()
     interaction.user.id = 123
     interaction.response = AsyncMock()
-    return interaction 
+    return interaction

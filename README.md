@@ -105,20 +105,20 @@ make down
 
 ## Usage
 
-- **Check a UUID:**  
+- **Check a UUID:**
   In any channel the bot is in, use the slash command:
   ```
   /check <UUID>
   ```
   The bot will reply with the scan status from the ODIN Threatfeed.
 
-- **Health Check:**  
+- **Health Check:**
   ```
   /health
   ```
   The bot will reply if it is operational.
 
-- **Access Threat Feed:**  
+- **Access Threat Feed:**
   Mention the bot and ask about the threat feed, e.g.:
   ```
   @Bot show me the threat feed
@@ -126,7 +126,7 @@ make down
   ```
   The bot will fetch and summarize the current ODIN threat feed.
 
-- **Summarize Channel Messages:**  
+- **Summarize Channel Messages:**
   Mention the bot and request a summary, e.g.:
   ```
   @Bot summarize today's messages
@@ -146,6 +146,48 @@ make down
   ```sh
   uv run pytest tests/
   ```
+
+## Development
+
+### Pre-commit Hooks
+
+This project uses pre-commit hooks to ensure code quality and consistency. The hooks include:
+
+- **Ruff** - Fast Python linter and formatter (replaces Black, isort, flake8, and more)
+- **mypy** - Static type checking
+- **pre-commit hooks** - Basic file checks (trailing whitespace, YAML validation, etc.)
+
+#### Setup
+
+1. Install development dependencies:
+   ```sh
+   uv pip install -e ".[dev]"
+   ```
+
+2. Install pre-commit hooks:
+   ```sh
+   pre-commit install
+   ```
+
+3. Run pre-commit on all files (optional):
+   ```sh
+   pre-commit run --all-files
+   ```
+
+The hooks will now run automatically on every commit, ensuring your code meets the project's quality standards.
+
+#### Ruff Configuration
+
+Ruff is configured to check for:
+- **E** - pycodestyle errors
+- **W** - pycodestyle warnings
+- **F** - pyflakes (unused imports, undefined variables)
+- **I** - isort (import sorting)
+- **B** - flake8-bugbear (bug detection)
+- **C4** - flake8-comprehensions (comprehension improvements)
+- **UP** - pyupgrade (Python syntax upgrades)
+- **ERA** - eradicate (commented-out code)
+- **D** - pydocstyle (docstring style)
 
 ## Notes
 

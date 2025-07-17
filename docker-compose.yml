@@ -18,7 +18,7 @@ services:
       - ./logs:/app/logs
 
   mcp-discord:
-    image: barryy625/mcp-discord:latest  #mcp/mcp-discord:latest
+    image: barryy625/mcp-discord:latest
     restart: unless-stopped
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}

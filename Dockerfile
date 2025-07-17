@@ -17,4 +17,4 @@ RUN uv pip install --system --no-cache-dir '.[test]'
 RUN mkdir -p logs && chown -R odinuser:odinuser logs
 USER odinuser
 
-CMD odinbot agent --guild-id "${GUILD_ID}" --channel-id "${CHANNEL_ID}" 
+CMD odinbot agent --guild-id "${GUILD_ID}" --channel-id "${CHANNEL_ID}"
