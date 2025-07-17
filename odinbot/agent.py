@@ -9,7 +9,7 @@ from discord import app_commands
 from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
-from any_agent.config import MCPSse
+from any_agent.config import MCPStreamableHttp
 from any_agent.tools import search_web, visit_webpage
 from pydantic import BaseModel, Field
 from odinbot.tools.odin import check_submission, get_threatfeed
@@ -190,7 +190,7 @@ class MessageAnalyzerBot(commands.Bot):
                 model_id="o3",
                 instructions=instructions,
                 tools=[
-                    MCPSse(
+                    MCPStreamableHttp(
                         url= MCP_DISCORD_URL,
                     ), 
                     check_submission,

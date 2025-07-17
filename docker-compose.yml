@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   odinbot:
     image: odinbot:latest
@@ -15,13 +13,12 @@ services:
       # MCP_DISCORD options:
       # - Use http://mcp-discord:8080/mcp if both services are in Docker Compose (container-to-container)
       # - Use http://host.docker.internal:8080/mcp if MCP server runs on the host (container-to-host)
-      - MCP_DISCORD=${MCP_DISCORD}
+      - MCP_DISCORD=http://mcp-discord:8080/mcp
     volumes:
       - ./logs:/app/logs
 
-
   mcp-discord:
-    image: my-mcp-discord
+    image: my-mcp-discord:latest
     restart: unless-stopped
     environment:
       - DISCORD_TOKEN=${DISCORD_TOKEN}
