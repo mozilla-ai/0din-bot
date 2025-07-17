@@ -40,7 +40,44 @@ uv pip install -e '.[test]'
 ```
 This will install all runtime and test dependencies (pytest, pytest-asyncio, pytest-mock, etc.).
 
-## Setup
+## Docker Setup
+
+The bot can also be run using Docker Compose, which launches both the ODIN bot and the MCP Discord server in separate containers.
+
+### Prerequisites
+- Docker and Docker Compose installed on your system
+- Environment variables for the OpenAI API key, the Discord server's Guild ID and the channel ID you want the bot to monitor. Should you want to access the 0DIN API, you will also need a key for that.
+
+   ```sh
+   export OPENAI_API_KEY=your-openai-api-key-here
+   export DISCORD_TOKEN=your-bot-token-here
+   export ODIN_API_KEY=your-odin-api-key-here
+   export GUILD_ID=your-discord-guild-id-here
+   export CHANNEL_ID=your-discord-channel-id-here
+   ```
+
+### Running with Docker Compose
+```sh
+make up
+```
+
+This command will:
+- Build the ODIN bot Docker image
+- Pull the MCP Discord server image from [Docker Hub](https://hub.docker.com/r/barryy625/mcp-discord)
+- Launch both containers using Docker Compose
+- The MCP Discord server will be available on port 8080
+
+### Stopping the containers
+```sh
+make down
+```
+
+### Other Docker commands
+- `make build` - Build the ODIN bot Docker image
+- `make run` - Run the ODIN bot container directly
+- `make debug` - Run the ODIN bot container with an interactive shell for debugging
+
+## Local setup
 
 1. **Clone this repository and enter the directory:**
    ```sh
@@ -56,15 +93,7 @@ This will install all runtime and test dependencies (pytest, pytest-asyncio, pyt
    - Invite the bot to your server using the OAuth2 URL generator (scopes: `bot`, permissions: `Send Messages`, `Read Messages`)
 
 4. **Set your environment variables:**
-   - The `/check <UUID>` command and threat feed access require a valid ODIN API key.
-   - You must also set your Discord server's Guild ID and the channel ID you want the bot to monitor.
-
-   ```sh
-   export DISCORD_TOKEN=your-bot-token-here
-   export ODIN_API_KEY=your-odin-api-key-here
-   export GUILD_ID=your-discord-guild-id-here
-   export CHANNEL_ID=your-discord-channel-id-here
-   ```
+   See the instructions above, in the Docker setup section.
 
 5. **Run the bot:**
    ```sh
@@ -72,6 +101,7 @@ This will install all runtime and test dependencies (pytest, pytest-asyncio, pyt
    ```
    - Make sure you have set the `DISCORD_TOKEN`, `ODIN_API_KEY`, `GUILD_ID`, and `CHANNEL_ID` environment variables as described above.
    - The bot will start and monitor the specified channel in your server.
+
 
 ## Usage
 
