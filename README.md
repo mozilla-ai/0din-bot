@@ -24,6 +24,7 @@ A Discord bot that:
   - A Discord account and a Discord server where you have permission to add bots
   - A Discord Bot Token ([Create one here](https://discord.com/developers/applications))
   - An ODIN API Key (for `/check` command and threat feed access)
+  - [mcpd](https://github.com/mozilla-ai/mcpd) running (runs separately to the application, handles starting and routing to the required MCP servers and allowed tools)
 
 ## Installation
 
@@ -78,6 +79,36 @@ make down
 - `make debug` - Run the ODIN bot container with an interactive shell for debugging
 
 ## Local setup
+
+### `mcpd`
+
+> [!NOTE]  
+> You can run `mcpd` anywhere so long as it's accessible via HTTP by `0din-bot`.
+> Just set the `MCPD_ADDR` env var for `0bin-bot`, e.g. `MCPD_ADDR=http://odinbot.mcpd.mydomain:8090`
+
+1. Download the relevant `mcpd` [release binary](https://github.com/mozilla-ai/mcpd/releases) for your OS and architecture
+  ```bash
+  curl -L -o mcpd_bin.tar.gz "https://github.com/mozilla-ai/mcpd/releases/download/v0.0.1/mcpd_Darwin_arm64.tar.gz"
+  tar -zxvf mcpd_bin.tar.gz
+  ```
+2. You can run `mcpd` anywhere so long as it's accessible via HTTP by `0din-bot` (just set the `MCPD_ADDR` env var for `0bin-bot`, e.g. `MCPD_ADDR=http://odinbot.mcpd.mydomain:8090`).
+  From where you want to run `mcpd`, please ensure you have the following files:
+  * `mcpd` ← downloaded binary
+  * `.mcpd.toml` ← from this repository
+  * `.mcpd.vars.toml` ← from this repository
+3. Export your Discord token for the MCP server ([mcp-discord](https://www.npmjs.com/package/mcp-discord)) configured in `.mcpd.toml`
+  ```bash
+  export MCPD__MCP_DISCORD__DISCORD_TOKEN=<YOUR_DISCORD_TOKEN>
+  ```
+4. Start `mcpd` (with or without `--dev` mode flag)
+  ```bash
+  mcpd daemon --runtime-file ".mcpd.vars.toml"
+  # or ... if you want to enable logging so you can tail the logs
+  mcpd daemon --runtime-file ".mcpd.vars.toml" --log-level=DEBUG --log-path=$(pwd)/mcpd.log --dev
+  ```
+5. `mcpd` is now running, send `SIGTERM` or `SIGINT` to `mcpd` to stop it when you're finished (`CTRL+C`)
+
+### ODIN bot
 
 1. **Clone this repository and enter the directory:**
    ```sh
