@@ -9,8 +9,8 @@ from discord import app_commands
 from discord.ext import commands
 from datetime import datetime
 from any_agent import AgentConfig, AnyAgent
-from any_agent.config import MCPStreamableHttp
 from any_agent.tools import search_web, visit_webpage
+from mcpd import McpdClient, McpdError
 from pydantic import BaseModel, Field
 from odinbot.tools.odin import check_submission, get_threatfeed
 from odinbot.tools.date_utils import get_current_gmt_time
@@ -155,7 +155,7 @@ General rules:
 
 
 class MessageAnalyzerBot(commands.Bot):
-    def __init__(self, guild_id: str, channel_id: str) -> None:
+    def __init__(self, guild_id: str, channel_id: str, mcpd_endpoint: str | None = None) -> None:
         """Initialize the Discord bot with message content intent.
         
         Args:
@@ -169,7 +169,12 @@ class MessageAnalyzerBot(commands.Bot):
         self.agent = None  # Will be initialized in setup_hook
         self.guild_id = guild_id
         self.channel_id = channel_id
-        os.makedirs("logs", exist_ok=True)         
+        os.makedirs("logs", exist_ok=True)
+
+        # Configure mcpd client to interact with MCP servers and tools
+        if not mcpd_endpoint or not mcpd_endpoint.strip():
+            mcpd_endpoint = os.environ.get("MCPD_ADDR", "http://localhost:8090")
+        self.mcpd_client = McpdClient(api_endpoint=mcpd_endpoint)
 
     async def _create_agent(self) -> AnyAgent:
         """Create the AnyAgent instance with MCP tools asynchronously.
@@ -181,18 +186,13 @@ class MessageAnalyzerBot(commands.Bot):
             guild_id=self.guild_id,
             channel_id=self.channel_id
         )
-        
-        MCP_DISCORD_URL = os.environ.get('MCP_DISCORD', 'http://localhost:8080/mcp')
-        logger.info(f"{MCP_DISCORD_URL=}")
         return await AnyAgent.create_async(
             "openai",
             AgentConfig(
                 model_id="o3",
                 instructions=instructions,
-                tools=[
-                    MCPStreamableHttp(
-                        url= MCP_DISCORD_URL,
-                    ), 
+
+                tools = self.mcpd_client.agent_tools() + [
                     check_submission,
                     get_threatfeed,
                     search_web,

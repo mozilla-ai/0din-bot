@@ -1,0 +1,4 @@
+[servers]
+  [servers.mcp-discord]
+    [servers.mcp-discord.env]
+      DISCORD_TOKEN = "${MCPD__MCP_DISCORD__DISCORD_TOKEN}"

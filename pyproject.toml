@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "odinbot"
-version = "0.1.0"
+version = "0.1.1"
 description = "A Discord bot that checks UUIDs in the ODIN Threatfeed API and can also analyze Discord messages"
 readme = "README.md"
 authors = [
@@ -21,13 +21,14 @@ dependencies = [
     "httpx>=0.26.0",     # Async HTTP requests
     "loguru>=0.7.2",     # Logging
     "python-dotenv>=1.0.0",  # Environment variables
-    "any-agent[all] @ git+https://github.com/mozilla-ai/any-agent.git",  # Agent functionality with all extras
+    "any-agent[all]>=0.25.2",  # Agent functionality with all extras
     "litellm>=1.30.7",   # LLM calls
     "fire>=0.5.0",       # CLI for agent
     "pydantic>=2.6.1",   # Data validation
     "click>=8.1.7",      # CLI framework
     "docker>=7.0.0",     # For MCPStdio tool
     "pytz>=2024.1",      # Timezone handling
+    "mcpd>=0.0.1", # mcpd for interacting with MCP servers/tools
 ]
 
 [project.scripts]

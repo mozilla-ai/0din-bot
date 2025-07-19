@@ -1,0 +1,4 @@
+[[servers]]
+  name = "mcp-discord"
+  package = "npx::mcp-discord@1.3.4"
+  tools = ["discord_read_messages", "discord_login", "discord_send"]
